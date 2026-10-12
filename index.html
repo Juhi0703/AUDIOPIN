@@ -204,7 +204,7 @@
     <p class="score" id="calibScore"></p>
     <hr>
     <h2>Practise the key codes</h2>
-    <p class="hint">Each sound has a direction <em>and</em> a pitch. Together they mean a number 0–9. The chart is public, so it can stay on screen.</p>
+    <p class="hint">Each cue is one of three sounds from one of four directions. The pair means a number 0–9. The chart is public, so it can stay on screen.</p>
     <div class="chart" id="chartA"></div>
     <div class="row"><button id="keyPractice" class="primary">Play a key code</button></div>
     <div class="nums" id="practiceNums"></div>
@@ -266,8 +266,8 @@
 <script>
 /* HOW THIS PAGE WORKS
    1. SETTINGS  which directions and pitches exist, and how fast the cues play
-   2. SOUND     a short noise burst placed at a direction by the browser's HRTF panner,
-                optionally with a tone mixed in to carry the pitch half of a key code
+   2. SOUND     one of three short sounds, placed at a direction by the browser's HRTF panner.
+                Which sound it is carries the second half of a key code; where it comes from carries the first
    3. STEPS     1 test directions and key codes -> 2 set secrets -> 3 wait-for-cue login
                 -> 4 normal PIN -> 5 key-code login (one coded sound per digit, no waiting)
    4. LOG       every answer becomes a row; export it as CSV for your analysis */
@@ -278,9 +278,16 @@ const LAYOUTS = {
   cardinal: { left: -90, front: 0, right: 90, back: 180 },                           // what the brief asks for
   lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 } // plan B if front/back get confused
 };
-// Pitch is the second half of a key code: a tone mixed into the burst, an octave apart each.
-const PITCHES  = [['low', 392], ['mid', 784], ['high', 1568]];
-const KEYS     = 10;   // key = pitch row x 4 + direction column, so codes 0..9 (two cells unused)
+// The sound itself is the second half of a key code. Three kinds, each short and broadband,
+// each starting with a sharp click so the ear can still tell where it came from.
+// To use your own recordings instead, put the files next to index.html and name them here, e.g.
+//   const VOICE_NAMES = ['hiss', 'bell', 'cat'];
+//   const VOICE_FILES = { bell: 'bell.mp3', cat: 'cat.mp3' };
+// Keep them under 0.25 s (anything longer is cut off) and check they still lateralise in step 1.
+const VOICE_NAMES = ['hiss', 'bell', 'knock'];
+const VOICE_FILES = {};
+const VOICE_GAIN  = { hiss: 1, bell: 0.55, knock: 1.8 };  // levelled by measurement; nudge by ear if one still stands out
+const KEYS     = 10;   // key = sound row x 4 + direction column, so codes 0..9 (two cells unused)
 const PIN_LEN  = 4;    // digits (or directions) in a PIN
 const CUE_MS   = 1200; // step 3 only: time from one cue to the next (the CHI paper's floor is 600 ms)
 const LEAD_MS  = 700;  // step 3 only: pause before each position starts
@@ -300,6 +307,13 @@ let numEntry = '', numStart = 0, numDone = true;
 let trialNo = 0;
 let log = [];
 let ctx = null, noise = null;
+let voices = {};                                     // sound name -> AudioBuffer
+const pendingFiles = {};                             // sound name -> Promise<ArrayBuffer> for your own recordings
+for (const name of Object.keys(VOICE_FILES)) {
+  if (VOICE_FILES[name]) {
+    pendingFiles[name] = fetch(VOICE_FILES[name]).then(r => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+  }
+}
 
 const dirs = () => LAYOUTS[layout];
 const dirNames = () => Object.keys(dirs());
@@ -310,23 +324,83 @@ async function initAudio() {
   if (!ctx) {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {} // iPhone Safari: keep playing when the silent switch is on
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    noise = makeNoise(ctx, 0.3);
     ctx.createPanner().panningModel = 'HRTF'; // start loading the HRTF data now, not on the first cue
   }
-  if (ctx.state !== 'running') await ctx.resume();
+  if (ctx.state !== 'running') await ctx.resume();    // must happen inside the tap, before any waiting
+  for (const name of VOICE_NAMES) {                   // build (or load) each sound once
+    if (voices[name]) continue;
+    let buffer = null;
+    if (pendingFiles[name]) {
+      const bytes = await pendingFiles[name];
+      if (bytes) { try { buffer = toMono(ctx, await ctx.decodeAudioData(bytes)); } catch (e) { buffer = null; } }
+    }
+    voices[name] = normalise(buffer || buildVoice(ctx, name), VOICE_GAIN[name]);
+  }
+  noise = voices[VOICE_NAMES[0]];
 }
 
-// 0.3 s of white noise. Broadband sound is much easier to localise than a beep.
-function makeNoise(context, seconds) {
-  const buffer = context.createBuffer(1, Math.round(context.sampleRate * seconds), context.sampleRate);
-  const samples = buffer.getChannelData(0);
-  for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+// Builds one 0.3 s sound. Every voice gets a 4 ms broadband click at the start:
+// a sharp onset is the strongest cue the ear has for working out a direction.
+function buildVoice(context, name) {
+  const sr = context.sampleRate, n = Math.round(sr * 0.3);
+  const buffer = context.createBuffer(1, n, sr);
+  const d = buffer.getChannelData(0);
+  if (name === 'bell') {                              // inharmonic partials, metallic and ringing
+    const f0 = 520, ratios = [1, 2.76, 5.4, 8.93, 13.34], amps = [1, 0.6, 0.4, 0.25, 0.15];
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      let v = 0;
+      for (let k = 0; k < ratios.length; k++) {
+        v += amps[k] * Math.sin(2 * Math.PI * f0 * ratios[k] * t) * Math.exp(-t * (3 + k * 2.5));
+      }
+      d[i] = v * 0.3;
+    }
+  } else if (name === 'knock') {                      // short wooden rap, gone in about 60 ms
+    // It needs real treble: the loudness difference between the ears only exists above ~1.5 kHz,
+    // so a purely low thud would reach both ears almost equally and be hard to place.
+    let previous = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr, x = Math.random() * 2 - 1;
+      const bright = x - 0.9 * previous;              // cheap high-pass, so the rap keeps its treble
+      previous = x;
+      d[i] = bright * Math.exp(-t * 45) * 1.2
+           + Math.sin(2 * Math.PI * 320 * t) * Math.exp(-t * 60) * 0.5
+           + Math.sin(2 * Math.PI * 1100 * t) * Math.exp(-t * 80) * 0.4;
+    }
+  } else {                                            // 'hiss': plain broadband noise
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const click = Math.round(sr * 0.004);
+  for (let i = 0; i < click; i++) d[i] += (Math.random() * 2 - 1) * (1 - i / click) * 0.8;
   return buffer;
 }
 
-// Plays one noise burst that seems to come from direction `dir`.
-// Chain: noise (+ optional tone) -> volume envelope -> HRTF panner -> earphones.
-function playCue(context, buffer, dir, when, toneHz) {
+// Equal loudness for every sound, so volume is never a clue.
+// The soft limiter matters: dividing by the peak instead would make short sounds much quieter than long ones.
+function normalise(buffer, tweak) {
+  const d = buffer.getChannelData(0);
+  let sum = 0;
+  for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+  const gain = 0.25 * (tweak || 1) / (Math.sqrt(sum / d.length) || 1);
+  for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * gain);
+  return buffer;
+}
+
+// The HRTF panner wants one channel, so a stereo recording is folded down first.
+function toMono(context, buffer) {
+  if (buffer.numberOfChannels === 1) return buffer;
+  const mono = context.createBuffer(1, buffer.length, buffer.sampleRate);
+  const out = mono.getChannelData(0);
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < data.length; i++) out[i] += data[i] / buffer.numberOfChannels;
+  }
+  return mono;
+}
+
+// Plays one sound that seems to come from direction `dir`.
+// Chain: sound -> volume envelope -> HRTF panner -> earphones.
+function playCue(context, buffer, dir, when) {
   const angle = dirs()[dir] * Math.PI / 180;
 
   const panner = context.createPanner();
@@ -354,26 +428,15 @@ function playCue(context, buffer, dir, when, toneHz) {
   envelope.connect(panner);
   source.start(when);
   source.stop(when + 0.3);
-
-  if (toneHz) {                                       // the tone carries the pitch half of the code
-    const tone = context.createOscillator();
-    tone.frequency.value = toneHz;
-    const toneGain = context.createGain();
-    shape(toneGain, 0.22);
-    tone.connect(toneGain);
-    toneGain.connect(panner);
-    tone.start(when);
-    tone.stop(when + 0.3);
-  }
 }
 
 function play(dir) { playCue(ctx, noise, dir, ctx.currentTime); }
 
-// A key code 0..9 is one direction plus one pitch.
+// A key code 0..9 is one direction plus one sound.
 const keyDir   = key => dirNames()[key % 4];
-const keyPitch = key => PITCHES[Math.floor(key / 4)];
-const codeName = key => `${keyDir(key)} + ${keyPitch(key)[0]}`;
-function playKey(key) { playCue(ctx, noise, keyDir(key), ctx.currentTime, keyPitch(key)[1]); }
+const keyVoice = key => VOICE_NAMES[Math.floor(key / 4)];
+const codeName = key => `${keyDir(key)} + ${keyVoice(key)}`;
+function playKey(key) { playCue(ctx, voices[keyVoice(key)], keyDir(key), ctx.currentTime); }
 
 // Delay between starting a sound and it reaching the ears. Large with Bluetooth, and not every browser reports it.
 function outputDelayMs() {
@@ -458,7 +521,7 @@ function drawHead(active) {
 function buildChart(id) {
   const cells = [cell('h', '')];
   for (const d of dirNames()) cells.push(cell('h', d));
-  PITCHES.forEach(([name], row) => {
+  VOICE_NAMES.forEach((name, row) => {
     cells.push(cell('h', name));
     dirNames().forEach((d, col) => {
       const value = row * 4 + col;
