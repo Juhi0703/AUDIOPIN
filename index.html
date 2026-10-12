@@ -16,6 +16,9 @@
     --on-accent: #ffffff;
     --pad: #141a33;
     --on-pad: #f2f4f8;
+    --warn-bg: #fdefe8;
+    --warn-ink: #8a2b12;
+    --warn-line: #f0c3b0;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -30,10 +33,16 @@
       --on-accent: #062520;
       --pad: #2c3754;
       --on-pad: #eef1f8;
+      --warn-bg: #2b1a14;
+      --warn-ink: #ffb79e;
+      --warn-line: #5c3225;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
+    --warn-bg: #2b1a14;
+    --warn-ink: #ffb79e;
+    --warn-line: #5c3225;
     --ground: #0e1220;
     --surface: #171d2d;
     --ink: #e6e9f2;
@@ -80,6 +89,10 @@
     border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
   }
   .hint { margin: 0; font-size: 0.88rem; color: var(--muted); }
+  .warn {
+    margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 0.88rem;
+    background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line);
+  }
   #status { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--chip); font-weight: 600; min-height: 3.2em; }
 
   button {
@@ -182,6 +195,7 @@
     </div>
   </section>
   <p class="hint">Wear wired earphones, left bud in the left ear. On iPhone, also turn the silent switch off.</p>
+  <p id="warn" class="warn" hidden></p>
 
   <p id="status" role="status" aria-live="polite">Step 1: learn what each direction sounds like.</p>
 
@@ -278,15 +292,15 @@ const LAYOUTS = {
   cardinal: { left: -90, front: 0, right: 90, back: 180 },                           // what the brief asks for
   lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 } // plan B if front/back get confused
 };
-// The sound itself is the second half of a key code. Three kinds, each short and broadband,
-// each starting with a sharp click so the ear can still tell where it came from.
-// To use your own recordings instead, put the files next to index.html and name them here, e.g.
-//   const VOICE_NAMES = ['hiss', 'bell', 'cat'];
-//   const VOICE_FILES = { bell: 'bell.mp3', cat: 'cat.mp3' };
-// Keep them under 0.25 s (anything longer is cut off) and check they still lateralise in step 1.
-const VOICE_NAMES = ['hiss', 'bell', 'knock'];
-const VOICE_FILES = {bell: 'mixkit-happy-bells-notification-937.wav', knock: 'mixkit-facility-bell-938.wav' };  // null = build the sound in code; otherwise a URL to fetch
-const VOICE_GAIN  = { hiss: 1, bell: 0.55, knock: 1.8 };  // levelled by measurement; nudge by ear if one still stands out
+// The sound itself is the second half of a key code: three kinds, one per row of the chart.
+// The files sit next to index.html. Each one is trimmed to its first 0.25 s of real sound
+// automatically, so a long recording is fine, but a soft fade-in is not: the sharp start is
+// what the ear uses to place the sound.
+const VOICE_NAMES = ['cat', 'bell', 'bird'];                       // chart rows, top to bottom
+const VOICE_FILES = { cat: 'mixkit-cartoon-little-cat-meow-91.wav', bell: 'mixkit-happy-bells-notification-937.wav', bird: 'mixkit-forest-birds-singing-1212.wav' };
+const VOICE_GAIN  = { cat: 1, bell: 1, bird: 1 };                  // set these by ear once you hear your own files
+const CUE_VOICE   = VOICE_NAMES[0];                                // the sound steps 1 and 3 use for plain direction cues
+const BUILT_IN    = ['hiss', 'bell', 'knock'];                     // stand-ins when a file is missing, so the rows stay different
 const KEYS     = 10;   // key = sound row x 4 + direction column, so codes 0..9 (two cells unused)
 const PIN_LEN  = 4;    // digits (or directions) in a PIN
 const CUE_MS   = 1200; // step 3 only: time from one cue to the next (the CHI paper's floor is 600 ms)
@@ -308,6 +322,7 @@ let trialNo = 0;
 let log = [];
 let ctx = null, noise = null;
 let voices = {};                                     // sound name -> AudioBuffer
+const voiceSource = {};                              // sound name -> 'file' or 'built-in'
 const pendingFiles = {};                             // sound name -> Promise<ArrayBuffer> for your own recordings
 for (const name of Object.keys(VOICE_FILES)) {
   if (VOICE_FILES[name]) {
@@ -327,16 +342,47 @@ async function initAudio() {
     ctx.createPanner().panningModel = 'HRTF'; // start loading the HRTF data now, not on the first cue
   }
   if (ctx.state !== 'running') await ctx.resume();    // must happen inside the tap, before any waiting
-  for (const name of VOICE_NAMES) {                   // build (or load) each sound once
+  const missing = [];
+  for (let i = 0; i < VOICE_NAMES.length; i++) {      // load (or build) each sound once
+    const name = VOICE_NAMES[i];
     if (voices[name]) continue;
     let buffer = null;
     if (pendingFiles[name]) {
       const bytes = await pendingFiles[name];
-      if (bytes) { try { buffer = toMono(ctx, await ctx.decodeAudioData(bytes)); } catch (e) { buffer = null; } }
+      if (bytes) {
+        try { buffer = prepare(ctx, toMono(ctx, await ctx.decodeAudioData(bytes))); } catch (e) { buffer = null; }
+      }
+      if (!buffer) missing.push(`${name} (${VOICE_FILES[name]})`);
     }
-    voices[name] = normalise(buffer || buildVoice(ctx, name), VOICE_GAIN[name]);
+    voiceSource[name] = buffer ? 'file' : 'built-in';
+    voices[name] = normalise(buffer || buildVoice(ctx, BUILT_IN[i % BUILT_IN.length]), VOICE_GAIN[name]);
   }
-  noise = voices[VOICE_NAMES[0]];
+  noise = voices[CUE_VOICE] || voices[VOICE_NAMES[0]];
+  warn(missing.length
+    ? `Could not load ${missing.join(', ')} — a built-in sound is standing in. Serve the page over http (file:// blocks loading) and check the names in VOICE_FILES.`
+    : '');
+}
+
+// Every recording gets the same treatment: cut the silence at the front, keep at most 0.25 s,
+// and fade the two edges so it cannot click.
+function prepare(context, buffer) {
+  const sr = buffer.sampleRate, d = buffer.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  if (!peak) return null;
+  const floor = peak * 0.02;
+  let start = 0;
+  while (start < d.length && Math.abs(d[start]) < floor) start++;
+  const length = Math.min(Math.round(sr * 0.25), d.length - start);
+  if (length < Math.round(sr * 0.02)) return null;    // under 20 ms of sound: treat it as a bad file
+  const out = context.createBuffer(1, length, sr);
+  const o = out.getChannelData(0);
+  const fade = Math.round(sr * 0.005);
+  for (let i = 0; i < length; i++) {
+    const gain = i < fade ? i / fade : (i > length - fade ? (length - i) / fade : 1);
+    o[i] = d[start + i] * gain;
+  }
+  return out;
 }
 
 // Builds one 0.3 s sound. Every voice gets a 4 ms broadband click at the start:
@@ -447,6 +493,7 @@ function outputDelayMs() {
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const say = text => { $('status').textContent = text; };
+const warn = text => { $('warn').textContent = text; $('warn').hidden = !text; };
 // Unpredictable random integer 0..n-1 (Math.random is not meant for security).
 const randInt = n => crypto.getRandomValues(new Uint32Array(1))[0] % n;
 function shuffle(list) {
