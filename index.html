@@ -94,6 +94,7 @@
   .steps button { text-align: left; line-height: 1.25; }
   .steps button b { display: block; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
   .steps button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+  .steps button:last-child { grid-column: 1 / -1; }
 
   .panel {
     display: grid; gap: 12px; padding: 16px;
@@ -102,6 +103,7 @@
   .panel h2 { margin: 0; font-size: 1.1rem; }
   .panel p { margin: 0; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; }
 
   .head { display: block; width: 100%; max-width: 300px; margin: 0 auto; }
   .head .ring { fill: none; stroke: var(--line); stroke-width: 2; }
@@ -121,6 +123,27 @@
   }
   .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .keypad button { padding: 16px 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+
+  /* key-code mode: the public chart and the ring of digits */
+  .chart { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .chart .h {
+    align-self: center; padding: 0 2px; text-align: center;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; color: var(--muted);
+  }
+  .chart .v {
+    padding: 6px 2px; text-align: center; border-radius: 8px;
+    background: var(--ground); border: 1px solid var(--line);
+    font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .chart .v.off { background: transparent; border-style: dashed; color: var(--muted); font-weight: 400; }
+  #ring { position: relative; width: 100%; max-width: 280px; aspect-ratio: 1 / 1; margin: 0 auto; }
+  #ring button {
+    position: absolute; transform: translate(-50%, -50%);
+    width: 52px; height: 52px; padding: 0; border-radius: 50%;
+    font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .nums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .nums button { padding: 12px 0; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   details.log { padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
   details.log summary { cursor: pointer; font-weight: 700; }
@@ -158,15 +181,16 @@
       </select>
     </div>
   </section>
-  <p class="hint">Wear earphones, left bud in the left ear. On iPhone, also turn the silent switch off.</p>
+  <p class="hint">Wear wired earphones, left bud in the left ear. On iPhone, also turn the silent switch off.</p>
 
   <p id="status" role="status" aria-live="polite">Step 1: learn what each direction sounds like.</p>
 
   <nav class="steps" aria-label="Steps">
     <button id="goCalib"><b>Step 1</b>Test directions</button>
-    <button id="goEnroll"><b>Step 2</b>Set PIN</button>
-    <button id="goLogin"><b>Step 3</b>Log in with AudioPIN</button>
-    <button id="goBase"><b>Step 4</b>Log in with normal PIN</button>
+    <button id="goEnroll"><b>Step 2</b>Set the secrets</button>
+    <button id="goLogin"><b>Step 3</b>Log in: wait for your cue</button>
+    <button id="goBase"><b>Step 4</b>Log in: normal PIN</button>
+    <button id="goKey"><b>Step 5</b>Log in: key code (the new one)</button>
   </nav>
 
   <section id="calibPanel" class="panel">
@@ -178,39 +202,57 @@
     </div>
     <div class="row" id="quizBtns"></div>
     <p class="score" id="calibScore"></p>
+    <hr>
+    <h2>Practise the key codes</h2>
+    <p class="hint">Each sound has a direction <em>and</em> a pitch. Together they mean a number 0–9. The chart is public, so it can stay on screen.</p>
+    <div class="chart" id="chartA"></div>
+    <div class="row"><button id="keyPractice" class="primary">Play a key code</button></div>
+    <div class="nums" id="practiceNums"></div>
+    <p class="score" id="keyScore"></p>
   </section>
 
   <section id="enrollPanel" class="panel" hidden>
-    <h2>Set the AudioPIN</h2>
-    <p class="hint">Choose four directions in order.</p>
+    <h2>Set the secrets</h2>
+    <p class="hint">Four directions for step 3.</p>
     <div class="row" id="enrollBtns"></div>
-    <p>PIN: <span class="pinview" id="pinView">—</span></p>
+    <p>Direction PIN: <span class="pinview" id="pinView">—</span></p>
     <div class="row">
       <button id="example">Use left → right → front → left</button>
       <button id="clear">Clear</button>
     </div>
+    <hr>
     <div>
-      <label for="numPin">Normal PIN for step 4</label>
+      <label for="numPin">Number PIN for steps 4 and 5</label>
       <input id="numPin" inputmode="numeric" maxlength="4" autocomplete="off">
+      <p class="hint" style="margin-top:6px">Use a different number in each condition if the same people will watch both.</p>
     </div>
   </section>
 
   <section id="loginPanel" class="panel" hidden>
-    <h2>Log in with AudioPIN</h2>
+    <h2>Log in: wait for your cue</h2>
     <div class="dots" id="audioDots">○○○○</div>
     <div id="tap" role="button" aria-label="Tap when you hear your direction">TAP</div>
     <p class="hint">Directions play in a new random order for each position. Tap once when you hear yours. Someone watching sees only a tap.</p>
   </section>
 
   <section id="basePanel" class="panel" hidden>
-    <h2>Log in with a normal PIN</h2>
+    <h2>Log in: normal PIN</h2>
     <div class="dots" id="numDots">○○○○</div>
     <div class="keypad" id="keypad"></div>
   </section>
 
+  <section id="keyPanel" class="panel" hidden>
+    <h2>Log in: key code</h2>
+    <div class="dots" id="keyDots">○○○○</div>
+    <div class="chart" id="chartB"></div>
+    <div class="row"><button id="keyReplay">Play that sound again</button></div>
+    <div id="ring"></div>
+    <p class="hint">One sound per digit. Read its number from the chart, count that many steps clockwise from your digit, and tap where you land. Nothing on this screen shows which sound played.</p>
+  </section>
+
   <details class="log">
     <summary>Results log · <span id="logCount">0</span> rows</summary>
-    <p class="hint"></p>
+    <p class="hint">Keep this closed while someone is watching: it shows the answers.</p>
     <div class="row">
       <button id="dl">Download CSV</button>
       <button id="showCsv">Show CSV to copy</button>
@@ -223,9 +265,11 @@
 
 <script>
 /* HOW THIS PAGE WORKS
-   1. SETTINGS  which directions exist and how fast the cues play
-   2. SOUND     one short noise burst, placed at a direction by the browser's HRTF panner
-   3. STEPS     test directions -> set PIN -> log in by tapping -> normal PIN for comparison
+   1. SETTINGS  which directions and pitches exist, and how fast the cues play
+   2. SOUND     a short noise burst placed at a direction by the browser's HRTF panner,
+                optionally with a tone mixed in to carry the pitch half of a key code
+   3. STEPS     1 test directions and key codes -> 2 set secrets -> 3 wait-for-cue login
+                -> 4 normal PIN -> 5 key-code login (one coded sound per digit, no waiting)
    4. LOG       every answer becomes a row; export it as CSV for your analysis */
 
 // ================= 1. SETTINGS =================
@@ -234,18 +278,24 @@ const LAYOUTS = {
   cardinal: { left: -90, front: 0, right: 90, back: 180 },                           // what the brief asks for
   lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 } // plan B if front/back get confused
 };
-const PIN_LEN  = 4;    // directions in a PIN
-const CUE_MS   = 1200; // time from one cue to the next while logging in (main speed/accuracy dial)
-const LEAD_MS  = 700;  // pause before each PIN position starts
+// Pitch is the second half of a key code: a tone mixed into the burst, an octave apart each.
+const PITCHES  = [['low', 392], ['mid', 784], ['high', 1568]];
+const KEYS     = 10;   // key = pitch row x 4 + direction column, so codes 0..9 (two cells unused)
+const PIN_LEN  = 4;    // digits (or directions) in a PIN
+const CUE_MS   = 1200; // step 3 only: time from one cue to the next (the CHI paper's floor is 600 ms)
+const LEAD_MS  = 700;  // step 3 only: pause before each position starts
 const REACT_MS = 200;  // nobody reacts faster than this, so a quicker tap answers the previous cue
+const KEY_LEAD_MS = 250; // step 5: pause before the coded sound plays
 
 // ================= state =================
 let layout = 'cardinal';
-let pin = [];             // the AudioPIN, e.g. ['left', 'right', 'front', 'left']
+let pin = [];             // the direction PIN, e.g. ['left', 'right', 'front', 'left']
 let quizTarget = null;    // direction just played in step 1
+let practiceKey = null;   // key code just played in step 1
 let loginRun = 0;         // goes up whenever a running login must stop
-let cueTimer = null;      // interval that plays the cue cycle
-let pendingTap = null;    // finishes the PIN position that is waiting for a tap
+let cueTimer = null;      // interval that plays the cue cycle in step 3
+let pendingTap = null;    // finishes the position that is waiting for an answer
+let keyAnswer = null;     // set while step 5 waits for a tap on the ring
 let numEntry = '', numStart = 0, numDone = true;
 let trialNo = 0;
 let log = [];
@@ -275,18 +325,9 @@ function makeNoise(context, seconds) {
 }
 
 // Plays one noise burst that seems to come from direction `dir`.
-// Chain: noise -> volume envelope -> HRTF panner -> earphones.
-function playCue(context, buffer, dir, when) {
+// Chain: noise (+ optional tone) -> volume envelope -> HRTF panner -> earphones.
+function playCue(context, buffer, dir, when, toneHz) {
   const angle = dirs()[dir] * Math.PI / 180;
-
-  const source = context.createBufferSource();
-  source.buffer = buffer;
-
-  const envelope = context.createGain();              // 10 ms fades so the burst doesn't click
-  envelope.gain.setValueAtTime(0, when);
-  envelope.gain.linearRampToValueAtTime(0.6, when + 0.01);
-  envelope.gain.setValueAtTime(0.6, when + 0.24);
-  envelope.gain.linearRampToValueAtTime(0, when + 0.25);
 
   const panner = context.createPanner();
   panner.panningModel = 'HRTF';                       // filters each ear the way a real head would
@@ -296,15 +337,43 @@ function playCue(context, buffer, dir, when) {
   } else {
     panner.setPosition(x, 0, z);                      // older Safari
   }
+  panner.connect(context.destination);
 
+  const shape = (node, peak) => {                     // 10 ms fades so the burst doesn't click
+    node.gain.setValueAtTime(0, when);
+    node.gain.linearRampToValueAtTime(peak, when + 0.01);
+    node.gain.setValueAtTime(peak, when + 0.24);
+    node.gain.linearRampToValueAtTime(0, when + 0.25);
+  };
+
+  const source = context.createBufferSource();        // the noise carries the direction
+  source.buffer = buffer;
+  const envelope = context.createGain();
+  shape(envelope, 0.6);
   source.connect(envelope);
   envelope.connect(panner);
-  panner.connect(context.destination);
   source.start(when);
   source.stop(when + 0.3);
+
+  if (toneHz) {                                       // the tone carries the pitch half of the code
+    const tone = context.createOscillator();
+    tone.frequency.value = toneHz;
+    const toneGain = context.createGain();
+    shape(toneGain, 0.22);
+    tone.connect(toneGain);
+    toneGain.connect(panner);
+    tone.start(when);
+    tone.stop(when + 0.3);
+  }
 }
 
 function play(dir) { playCue(ctx, noise, dir, ctx.currentTime); }
+
+// A key code 0..9 is one direction plus one pitch.
+const keyDir   = key => dirNames()[key % 4];
+const keyPitch = key => PITCHES[Math.floor(key / 4)];
+const codeName = key => `${keyDir(key)} + ${keyPitch(key)[0]}`;
+function playKey(key) { playCue(ctx, noise, keyDir(key), ctx.currentTime, keyPitch(key)[1]); }
 
 // Delay between starting a sound and it reaching the ears. Large with Bluetooth, and not every browser reports it.
 function outputDelayMs() {
@@ -323,22 +392,30 @@ function shuffle(list) {
   return a;
 }
 const drawDots = (id, filled) => { $(id).textContent = '●'.repeat(filled) + '○'.repeat(PIN_LEN - filled); };
+function cell(className, text) {
+  const node = document.createElement('div');
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
 
 // ================= 3. STEPS =================
-const STEPS = { calib: 'goCalib', enroll: 'goEnroll', login: 'goLogin', base: 'goBase' };
+const STEPS = { calib: 'goCalib', enroll: 'goEnroll', login: 'goLogin', base: 'goBase', key: 'goKey' };
 function showStep(name) {
   stopLogin();
   for (const step in STEPS) {
     $(step + 'Panel').hidden = step !== name;
     $(STEPS[step]).setAttribute('aria-pressed', String(step === name));
   }
+  // Put the working panel at the top of the screen, so nobody scrolls during a timed entry.
+  if (name !== 'calib') $(name + 'Panel').scrollIntoView({ block: 'start' });
 }
 
 function setLayout(name) {
   layout = name;
   $('layout').value = name;
   pin = []; showPin();
-  quizTarget = null;
+  quizTarget = null; practiceKey = null;
   for (const [boxId, pick] of [['quizBtns', answerQuiz], ['enrollBtns', addToPin]]) {
     $(boxId).replaceChildren(...dirNames().map(d => {
       const b = document.createElement('button');
@@ -348,12 +425,14 @@ function setLayout(name) {
     }));
   }
   drawHead(null);
+  buildChart('chartA');
+  buildChart('chartB');
   showScore();
 }
 $('layout').onchange = e => {
   stopLogin();
   setLayout(e.target.value);
-  say('Directions changed, so the AudioPIN was cleared. Set it again in step 2.');
+  say('Directions changed, so the direction PIN was cleared and the key chart was rebuilt.');
 };
 $('pid').oninput = () => showScore();
 
@@ -374,7 +453,22 @@ function drawHead(active) {
   $('head').innerHTML = svg;
 }
 
-// ---- Step 1: test directions ----
+// The public code chart: rows are pitches, columns are directions, cells are the numbers 0-9.
+// It never shows which code is playing -- that is the whole secret.
+function buildChart(id) {
+  const cells = [cell('h', '')];
+  for (const d of dirNames()) cells.push(cell('h', d));
+  PITCHES.forEach(([name], row) => {
+    cells.push(cell('h', name));
+    dirNames().forEach((d, col) => {
+      const value = row * 4 + col;
+      cells.push(value < KEYS ? cell('v', String(value)) : cell('v off', '–'));
+    });
+  });
+  $(id).replaceChildren(...cells);
+}
+
+// ---- Step 1: test directions, then practise the key codes ----
 $('goCalib').onclick = () => { showStep('calib'); say('Play the labelled demo, then test yourself with random ones.'); };
 $('demo').onclick = async () => {
   await initAudio();
@@ -402,38 +496,66 @@ function answerQuiz(d) {
   quizTarget = null;
   showScore();
 }
+
+$('keyPractice').onclick = async () => {
+  await initAudio();
+  practiceKey = randInt(KEYS);
+  playKey(practiceKey);
+  say('Which number was that? Read it off the chart.');
+};
+function answerPractice(n) {
+  if (practiceKey === null) return say('Press "Play a key code" first.');
+  const ok = n === practiceKey;
+  addLog({ mode: 'key-test', key: practiceKey, code: codeName(practiceKey), target: practiceKey, chosen: n, correct: ok });
+  say(ok ? `Correct: ${practiceKey} (${codeName(practiceKey)}).`
+         : `It was ${practiceKey} (${codeName(practiceKey)}), you said ${n}.`);
+  practiceKey = null;
+  showScore();
+}
+$('practiceNums').replaceChildren(...Array.from({ length: KEYS }, (_, n) => {
+  const b = document.createElement('button');
+  b.textContent = n;
+  b.onclick = () => answerPractice(n);
+  return b;
+}));
+
 function showScore() {
   const who = $('pid').value.trim();
-  const rows = log.filter(r => r.mode === 'test' && r.layout === layout && r.participant === who);
-  $('calibScore').textContent = rows.length
-    ? 'Score so far: ' + dirNames().map(d => {
-        const tries = rows.filter(r => r.target === d);
+  const mine = mode => log.filter(r => r.mode === mode && r.layout === layout && r.participant === who);
+  const dirRows = mine('test');
+  $('calibScore').textContent = dirRows.length
+    ? 'Directions: ' + dirNames().map(d => {
+        const tries = dirRows.filter(r => r.target === d);
         return `${d} ${tries.filter(r => r.correct).length}/${tries.length}`;
       }).join(' · ')
     : 'Your score for each direction appears here after the first answer.';
+  const keyRows = mine('key-test');
+  $('keyScore').textContent = keyRows.length
+    ? `Key codes: ${keyRows.filter(r => r.correct).length}/${keyRows.length} correct`
+    : 'Your key-code score appears here after the first answer.';
 }
 
-// ---- Step 2: set the PIN ----
-$('goEnroll').onclick = () => { showStep('enroll'); say('Choose four directions in order.'); };
+// ---- Step 2: set the secrets ----
+$('goEnroll').onclick = () => { showStep('enroll'); say('Four directions for step 3, and a 4-digit number for steps 4 and 5.'); };
 function showPin() { $('pinView').textContent = pin.length ? pin.join(' → ') : '—'; }
 function addToPin(d) {
-  if (pin.length === PIN_LEN) return say('The PIN already has four directions. Press Clear to change it.');
+  if (pin.length === PIN_LEN) return say('The direction PIN already has four directions. Press Clear to change it.');
   pin.push(d);
   showPin();
-  say(pin.length === PIN_LEN ? 'AudioPIN set. Go to step 3.' : `${PIN_LEN - pin.length} more to choose.`);
+  say(pin.length === PIN_LEN ? 'Direction PIN set. Go to step 3.' : `${PIN_LEN - pin.length} more to choose.`);
 }
 $('example').onclick = () => {
   setLayout('cardinal');
   pin = ['left', 'right', 'front', 'left'];
   showPin();
-  say('AudioPIN set to left → right → front → left. Go to step 3.');
+  say('Direction PIN set to left → right → front → left. Go to step 3.');
 };
 $('clear').onclick = () => { pin = []; showPin(); say('Choose four directions in order.'); };
 
-// ---- Step 3: log in with AudioPIN ----
+// ---- Step 3: wait-for-your-cue login (the original method) ----
 $('goLogin').onclick = async () => {
   await initAudio();
-  if (pin.length !== PIN_LEN) { showStep('enroll'); return say('Set a four-direction AudioPIN first.'); }
+  if (pin.length !== PIN_LEN) { showStep('enroll'); return say('Set a four-direction PIN first.'); }
   showStep('login');                                   // also stops a login that is already running
   const run = loginRun, trial = ++trialNo, entered = [], t0 = performance.now();
   drawDots('audioDots', 0);
@@ -488,16 +610,18 @@ function stopLogin() {
   loginRun++;
   clearInterval(cueTimer); cueTimer = null;
   $('tap').onpointerdown = null;
+  keyAnswer = null;
+  $('keyReplay').onclick = null;
   if (pendingTap) { const finish = pendingTap; pendingTap = null; finish(null); }
 }
 
 // ---- Step 4: normal PIN, for comparison ----
 $('goBase').onclick = () => {
-  if (!/^\d{4}$/.test($('numPin').value)) { showStep('enroll'); return say('Type a 4-digit normal PIN in step 2 first.'); }
+  if (!/^\d{4}$/.test($('numPin').value)) { showStep('enroll'); return say('Type a 4-digit number PIN in step 2 first.'); }
   showStep('base');
   numEntry = ''; numDone = false; numStart = performance.now();
   drawDots('numDots', 0);
-  say('Type the normal PIN.');
+  say('Type the number PIN.');
 };
 function pressKey(key) {
   if (numDone) return;
@@ -518,8 +642,72 @@ $('keypad').replaceChildren(...['1', '2', '3', '4', '5', '6', '7', '8', '9', '',
   return b;
 }));
 
+// ---- Step 5: key-code login (no waiting) ----
+// One coded sound per digit gives you a one-time key 0-9. You answer with (digit + key) mod 10.
+// Every key is equally likely, so every tap is equally likely: watching the screen tells an attacker nothing.
+function buildRing() {
+  $('ring').replaceChildren(...Array.from({ length: 10 }, (_, d) => {
+    const b = document.createElement('button');
+    b.textContent = d;
+    const a = (-90 + d * 36) * Math.PI / 180;
+    b.style.left = (50 + 38 * Math.cos(a)).toFixed(2) + '%';
+    b.style.top  = (50 + 38 * Math.sin(a)).toFixed(2) + '%';
+    b.onclick = () => { if (keyAnswer) keyAnswer(d); };
+    return b;
+  }));
+}
+
+$('goKey').onclick = async () => {
+  await initAudio();
+  const secret = $('numPin').value;
+  if (!/^\d{4}$/.test(secret)) { showStep('enroll'); return say('Type a 4-digit number PIN in step 2 first.'); }
+  showStep('key');
+  const run = loginRun, trial = ++trialNo, entered = [], t0 = performance.now();
+  drawDots('keyDots', 0);
+  for (let i = 0; i < PIN_LEN; i++) {
+    const digit = Number(secret[i]);
+    const key = randInt(KEYS);
+    say(`Digit ${i + 1} of ${PIN_LEN}: listen, then tap your answer.`);
+    const answer = await askKey(key);
+    if (!answer || run !== loginRun) return;
+    const expected = (digit + key) % 10;
+    entered.push(answer.chosen === expected);
+    drawDots('keyDots', i + 1);
+    addLog({ mode: 'key-step', trial, step: i + 1, key, code: codeName(key),
+             target: expected, chosen: answer.chosen, correct: answer.chosen === expected,
+             wrapped: digit + key >= 10, replays: answer.replays, ms: answer.ms });
+  }
+  const ok = entered.every(Boolean);
+  const ms = performance.now() - t0;
+  addLog({ mode: 'key-total', trial, target: secret, chosen: ok ? secret : '(wrong)', correct: ok, ms });
+  say(`${ok ? 'Access granted' : 'Wrong PIN'} in ${(ms / 1000).toFixed(1)} s. Press step 5 to try again.`);
+};
+
+// Plays one coded sound, then waits for a tap on the ring. Taps before the sound are ignored.
+function askKey(key) {
+  return new Promise(resolve => {
+    pendingTap = resolve;
+    const run = loginRun;
+    let replays = 0;
+    setTimeout(() => {
+      if (run !== loginRun) return;                     // the step was cancelled while we waited
+      playKey(key);
+      const start = performance.now();
+      $('keyReplay').onclick = () => { replays++; playKey(key); };
+      keyAnswer = chosen => {
+        keyAnswer = null;
+        $('keyReplay').onclick = null;
+        pendingTap = null;
+        try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+        resolve({ chosen, ms: performance.now() - start, replays });
+      };
+    }, KEY_LEAD_MS);
+  });
+}
+
 // ================= 4. LOG =================
-const COLUMNS = ['time', 'participant', 'layout', 'mode', 'trial', 'step', 'target', 'chosen', 'correct', 'ms', 'cues', 'delay_ms'];
+const COLUMNS = ['time', 'participant', 'layout', 'mode', 'trial', 'step', 'key', 'code',
+                 'target', 'chosen', 'correct', 'wrapped', 'replays', 'ms', 'cues', 'delay_ms'];
 const STORE = 'audiopin-log';
 
 function addLog(row) {
@@ -536,11 +724,11 @@ function addLog(row) {
 }
 
 function toCsv() {
-  const cell = v => {
+  const quote = v => {
     const s = v === undefined || v === null ? '' : String(v);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  return [COLUMNS.join(',')].concat(log.map(r => COLUMNS.map(c => cell(r[c])).join(','))).join('\n');
+  return [COLUMNS.join(',')].concat(log.map(r => COLUMNS.map(c => quote(r[c])).join(','))).join('\n');
 }
 
 function renderLog() {
@@ -587,6 +775,7 @@ $('wipe').onclick = () => {
 try { log = JSON.parse(localStorage.getItem(STORE)) || []; } catch (e) { log = []; }
 trialNo = log.reduce((max, r) => Math.max(max, Number(r.trial) || 0), 0);
 $('numPin').value = String(randInt(10000)).padStart(4, '0');
+buildRing();
 setLayout('cardinal');
 showStep('calib');
 renderLog();
