@@ -285,7 +285,7 @@ const LAYOUTS = {
 //   const VOICE_FILES = { bell: 'bell.mp3', cat: 'cat.mp3' };
 // Keep them under 0.25 s (anything longer is cut off) and check they still lateralise in step 1.
 const VOICE_NAMES = ['hiss', 'bell', 'knock'];
-const VOICE_FILES = {};
+const VOICE_FILES = {bell: 'mixkit-happy-bells-notification-937.wav', knock: 'mixkit-facility-bell-938.wav' };  // null = build the sound in code; otherwise a URL to fetch
 const VOICE_GAIN  = { hiss: 1, bell: 0.55, knock: 1.8 };  // levelled by measurement; nudge by ear if one still stands out
 const KEYS     = 10;   // key = sound row x 4 + direction column, so codes 0..9 (two cells unused)
 const PIN_LEN  = 4;    // digits (or directions) in a PIN
