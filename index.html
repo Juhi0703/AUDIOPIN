@@ -191,6 +191,7 @@
       <select id="layout">
         <option value="cardinal">Left, front, right, back</option>
         <option value="lateral">Four side positions</option>
+        <option value="wide">Five positions, two sounds</option>
       </select>
     </div>
   </section>
@@ -218,7 +219,7 @@
     <p class="score" id="calibScore"></p>
     <hr>
     <h2>Practise the key codes</h2>
-    <p class="hint">Each cue is one of three sounds from one of four directions. The pair means a number 0–9. The chart is public, so it can stay on screen.</p>
+    <p class="hint">Each cue is one sound from one direction. The pair means a number 0–9. The chart is public, so it can stay on screen.</p>
     <div class="chart" id="chartA"></div>
     <div class="row"><button id="keyPractice" class="primary">Play a key code</button></div>
     <div class="nums" id="practiceNums"></div>
@@ -289,21 +290,27 @@
 // ================= 1. SETTINGS =================
 // Angles in degrees, seen from above: 0 = straight ahead, 90 = right, -90 = left, 180 = behind.
 const LAYOUTS = {
-  cardinal: { left: -90, front: 0, right: 90, back: 180 },                           // what the brief asks for
-  lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 } // plan B if front/back get confused
+  cardinal: { left: -90, front: 0, right: 90, back: 180 },                            // what the brief asks for
+  lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 }, // plan B if front/back get confused
+  // Five positions need only two sounds to cover 0-9, so every sound appears at every
+  // direction: no spare boxes, no sound that is rarer or easier than the others.
+  wide:     { 'far-left': -90, left: -45, front: 0, right: 45, 'far-right': 90 }
 };
 // The sound itself is the second half of a key code: three kinds, one per row of the chart.
 // The files sit next to index.html. Each one is trimmed to its first 0.25 s of real sound
 // automatically, so a long recording is fine, but a soft fade-in is not: the sharp start is
 // what the ear uses to place the sound.
 const VOICE_NAMES = ['cat', 'bell', 'bird'];                       // chart rows, top to bottom
-const VOICE_FILES = { cat: 'mixkit-cartoon-little-cat-meow-91.wav', bell: 'mixkit-happy-bells-notification-937.wav', bird: 'mixkit-forest-birds-singing-1212.wav' };
+const VOICE_FILES = { cat: 'cat.wav', bell: 'bell.wav', bird: 'bird.wav' };
 const VOICE_GAIN  = { cat: 1, bell: 1, bird: 1 };                  // set these by ear once you hear your own files
 const CUE_VOICE   = VOICE_NAMES[0];                                // the sound steps 1 and 3 use for plain direction cues
 const BUILT_IN    = ['hiss', 'bell', 'knock'];                     // stand-ins when a file is missing, so the rows stay different
-const KEYS     = 10;   // key = sound row x 4 + direction column, so codes 0..9 (two cells unused)
-const PIN_LEN  = 4;    // digits (or directions) in a PIN
-const CUE_MS   = 1200; // step 3 only: time from one cue to the next (the CHI paper's floor is 600 ms)
+const KEYS      = 10;  // key = sound row x number of directions + direction column, so codes 0..9
+const SOUND_SEC = 1.0; // how much of each recording plays. Longer gives the ear more to work with, and costs time
+const PIN_LEN   = 4;   // digits (or directions) in a PIN
+// Step 3 plays cue after cue, so its spacing has to grow with the sound: silence between cues
+// is what keeps one cue from smearing into the next (the CHI paper's floor was 0.6 s for 0.54 s sounds).
+const CUE_MS   = Math.round(SOUND_SEC * 1000) + 800;
 const LEAD_MS  = 700;  // step 3 only: pause before each position starts
 const REACT_MS = 200;  // nobody reacts faster than this, so a quicker tap answers the previous cue
 const KEY_LEAD_MS = 250; // step 5: pause before the coded sound plays
@@ -332,6 +339,9 @@ for (const name of Object.keys(VOICE_FILES)) {
 
 const dirs = () => LAYOUTS[layout];
 const dirNames = () => Object.keys(dirs());
+// Only as many sounds as the grid needs: 4 directions need 3 sounds (12 boxes, 2 spare),
+// 5 directions need exactly 2 (10 boxes, none spare).
+const usedVoices = () => VOICE_NAMES.slice(0, Math.ceil(KEYS / dirNames().length));
 
 // ================= 2. SOUND =================
 // Browsers only allow sound after a tap, so every button that plays audio calls this first.
@@ -373,7 +383,7 @@ function prepare(context, buffer) {
   const floor = peak * 0.02;
   let start = 0;
   while (start < d.length && Math.abs(d[start]) < floor) start++;
-  const length = Math.min(Math.round(sr * 0.25), d.length - start);
+  const length = Math.min(Math.round(sr * SOUND_SEC), d.length - start);
   if (length < Math.round(sr * 0.02)) return null;    // under 20 ms of sound: treat it as a bad file
   const out = context.createBuffer(1, length, sr);
   const o = out.getChannelData(0);
@@ -459,11 +469,12 @@ function playCue(context, buffer, dir, when) {
   }
   panner.connect(context.destination);
 
-  const shape = (node, peak) => {                     // 10 ms fades so the burst doesn't click
+  const length = Math.min(buffer.duration, SOUND_SEC); // never play more than SOUND_SEC of it
+  const shape = (node, peak) => {                      // 10 ms fades so the sound doesn't click
     node.gain.setValueAtTime(0, when);
     node.gain.linearRampToValueAtTime(peak, when + 0.01);
-    node.gain.setValueAtTime(peak, when + 0.24);
-    node.gain.linearRampToValueAtTime(0, when + 0.25);
+    node.gain.setValueAtTime(peak, when + Math.max(0.02, length - 0.02));
+    node.gain.linearRampToValueAtTime(0, when + length);
   };
 
   const source = context.createBufferSource();        // the noise carries the direction
@@ -473,14 +484,14 @@ function playCue(context, buffer, dir, when) {
   source.connect(envelope);
   envelope.connect(panner);
   source.start(when);
-  source.stop(when + 0.3);
+  source.stop(when + length + 0.02);
 }
 
 function play(dir) { playCue(ctx, noise, dir, ctx.currentTime); }
 
 // A key code 0..9 is one direction plus one sound.
-const keyDir   = key => dirNames()[key % 4];
-const keyVoice = key => VOICE_NAMES[Math.floor(key / 4)];
+const keyDir   = key => dirNames()[key % dirNames().length];
+const keyVoice = key => usedVoices()[Math.floor(key / dirNames().length)];
 const codeName = key => `${keyDir(key)} + ${keyVoice(key)}`;
 function playKey(key) { playCue(ctx, voices[keyVoice(key)], keyDir(key), ctx.currentTime); }
 
@@ -566,15 +577,17 @@ function drawHead(active) {
 // The public code chart: rows are pitches, columns are directions, cells are the numbers 0-9.
 // It never shows which code is playing -- that is the whole secret.
 function buildChart(id) {
+  const columns = dirNames();
   const cells = [cell('h', '')];
-  for (const d of dirNames()) cells.push(cell('h', d));
-  VOICE_NAMES.forEach((name, row) => {
+  for (const d of columns) cells.push(cell('h', d));
+  usedVoices().forEach((name, row) => {
     cells.push(cell('h', name));
-    dirNames().forEach((d, col) => {
-      const value = row * 4 + col;
+    columns.forEach((d, col) => {
+      const value = row * columns.length + col;
       cells.push(value < KEYS ? cell('v', String(value)) : cell('v off', '–'));
     });
   });
+  $(id).style.gridTemplateColumns = `auto repeat(${columns.length}, minmax(0, 1fr))`;
   $(id).replaceChildren(...cells);
 }
 
@@ -587,7 +600,7 @@ $('demo').onclick = async () => {
     drawHead(d);
     say('Playing: ' + d);
     play(d);
-    await sleep(1000);
+    await sleep(Math.round(SOUND_SEC * 1000) + 400);
   }
   drawHead(null);
   if (!$('calibPanel').hidden) say('Now press "Play a random one" and choose where it came from.');
