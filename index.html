@@ -192,6 +192,8 @@
         <option value="cardinal">Left, front, right, back</option>
         <option value="lateral">Four side positions</option>
         <option value="wide">Five positions, two sounds</option>
+        <option value="trio">Three positions, four sounds</option>
+        <option value="pair">Two positions, five sounds</option>
       </select>
     </div>
   </section>
@@ -211,8 +213,12 @@
   <section id="calibPanel" class="panel">
     <h2>Test directions</h2>
     <svg id="head" class="head" viewBox="0 0 280 210" role="img" aria-label="Top view of your head with the four sound positions"></svg>
+    <div>
+      <label for="cueSel">Cue sound for steps 1 and 3</label>
+      <select id="cueSel"></select>
+    </div>
     <div class="row">
-      <button id="demo">Play all four, labelled</button>
+      <button id="demo">Play all, labelled</button>
       <button id="quizPlay" class="primary">Play a random one</button>
     </div>
     <div class="row" id="quizBtns"></div>
@@ -224,6 +230,11 @@
     <div class="row"><button id="keyPractice" class="primary">Play a key code</button></div>
     <div class="nums" id="practiceNums"></div>
     <p class="score" id="keyScore"></p>
+    <hr>
+    <h2>How different are the sounds?</h2>
+    <p class="hint">Two sounds are reliably told apart when they differ both in what frequencies they hold and in how they rise and fall. Higher is better; the lowest pair is the one to watch in the practice above.</p>
+    <div class="row"><button id="checkSounds">Score every pair</button></div>
+    <div class="tablewrap" id="pairTable"></div>
   </section>
 
   <section id="enrollPanel" class="panel" hidden>
@@ -294,17 +305,32 @@ const LAYOUTS = {
   lateral:  { 'far-left': -90, 'near-left': -30, 'near-right': 30, 'far-right': 90 }, // plan B if front/back get confused
   // Five positions need only two sounds to cover 0-9, so every sound appears at every
   // direction: no spare boxes, no sound that is rarer or easier than the others.
-  wide:     { 'far-left': -90, left: -45, front: 0, right: 45, 'far-right': 90 }
+  wide:     { 'far-left': -90, left: -45, front: 0, right: 45, 'far-right': 90 },
+  // Fewer directions, more sounds. Only 2x5 and 5x2 divide 10 evenly, so `pair` is the
+  // only way to cut directions without leaving spare boxes in the chart.
+  trio:     { left: -90, front: 0, right: 90 },                 // 3 x 4 sounds = 12 boxes, 2 spare
+  pair:     { left: -90, right: 90 }                            // 2 x 5 sounds = 10 boxes, none spare
 };
 // The sound itself is the second half of a key code: three kinds, one per row of the chart.
 // The files sit next to index.html. Each one is trimmed to its first 0.25 s of real sound
 // automatically, so a long recording is fine, but a soft fade-in is not: the sharp start is
 // what the ear uses to place the sound.
-const VOICE_NAMES = ['cat', 'bell', 'bird'];                       // chart rows, top to bottom
-const VOICE_FILES = { cat: 'cat.wav', bell: 'bell.wav', bird: 'bird.wav' };
-const VOICE_GAIN  = { cat: 1, bell: 1, bird: 1 };                  // set these by ear once you hear your own files
-const CUE_VOICE   = VOICE_NAMES[0];                                // the sound steps 1 and 3 use for plain direction cues
-const BUILT_IN    = ['hiss', 'bell', 'knock'];                     // stand-ins when a file is missing, so the rows stay different
+// Only as many rows as the layout needs are used, so the list can be longer than the grid:
+// 4 directions use the first 3, 3 directions use the first 4, 2 directions use all 5.
+// Ordered on purpose. The first three are the ones four directions use, and they sit in three
+// different envelope families: continuous, one hit, two hits. The cat is last, so it only
+// appears in the two-direction layout, and never as the direction cue.
+const VOICE_NAMES = ['rain', 'knock', 'chirp', 'cowbell', 'cat'];  // chart rows, top to bottom
+const VOICE_FILES = {                                              // Mixkit, free licence, no attribution required
+  rain:    'mixkit-heavy-rain-2403.wav',          // "Heavy rain"               continuous, smooth
+  knock:   'mixkit-wood-hard-hit-2404.wav',      // "Wood hard hit"            one impulse
+  chirp:   'mixkit-double-little-bird-chirp-2405.wav', // "Double little bird chirp" two pulses
+  cowbell: 'mixkit-cowbell-sharp-hit-2406.wav',   // "Cowbell sharp hit"        metallic ring
+  cat:     'mixkit-cat-meow-2407.wav'             // your own recording         voice-like swell
+};
+const VOICE_GAIN  = { rain: 1, knock: 1, chirp: 1, cowbell: 1, cat: 1 }; // set these by ear once you hear the files
+const CUE_VOICE   = VOICE_NAMES[0];                                // steps 1 and 3 start with the rain: steady noise places best
+const BUILT_IN    = ['hiss', 'knock', 'drip', 'bell', 'buzz'];     // stand-ins when a file is missing, so the rows stay different
 const KEYS      = 10;  // key = sound row x number of directions + direction column, so codes 0..9
 const SOUND_SEC = 1.0; // how much of each recording plays. Longer gives the ear more to work with, and costs time
 const PIN_LEN   = 4;   // digits (or directions) in a PIN
@@ -324,6 +350,7 @@ let loginRun = 0;         // goes up whenever a running login must stop
 let cueTimer = null;      // interval that plays the cue cycle in step 3
 let pendingTap = null;    // finishes the position that is waiting for an answer
 let keyAnswer = null;     // set while step 5 waits for a tap on the ring
+let cueVoice = CUE_VOICE; // which sound carries plain direction cues in steps 1 and 3
 let numEntry = '', numStart = 0, numDone = true;
 let trialNo = 0;
 let log = [];
@@ -367,7 +394,7 @@ async function initAudio() {
     voiceSource[name] = buffer ? 'file' : 'built-in';
     voices[name] = normalise(buffer || buildVoice(ctx, BUILT_IN[i % BUILT_IN.length]), VOICE_GAIN[name]);
   }
-  noise = voices[CUE_VOICE] || voices[VOICE_NAMES[0]];
+  noise = voices[cueVoice] || voices[VOICE_NAMES[0]];
   warn(missing.length
     ? `Could not load ${missing.join(', ')} — a built-in sound is standing in. Serve the page over http (file:// blocks loading) and check the names in VOICE_FILES.`
     : '');
@@ -422,6 +449,19 @@ function buildVoice(context, name) {
       d[i] = bright * Math.exp(-t * 45) * 1.2
            + Math.sin(2 * Math.PI * 320 * t) * Math.exp(-t * 60) * 0.5
            + Math.sin(2 * Math.PI * 1100 * t) * Math.exp(-t * 80) * 0.4;
+    }
+  } else if (name === 'drip') {                       // water drop: a quick upward blip
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const f = 500 + 900 * Math.min(t / 0.06, 1);
+      d[i] = (Math.sin(2 * Math.PI * f * t) + 0.4 * Math.sin(2 * Math.PI * 2.4 * f * t)) * Math.exp(-t * 28);
+    }
+  } else if (name === 'buzz') {                       // low rasp; nothing else in the set sounds like it
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      let v = 0;
+      for (let k = 1; k <= 9; k += 2) v += Math.sin(2 * Math.PI * 150 * k * t) / k;
+      d[i] = v * (0.6 + 0.4 * Math.sin(2 * Math.PI * 35 * t)) * Math.exp(-t * 6);
     }
   } else {                                            // 'hiss': plain broadband noise
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
@@ -487,7 +527,7 @@ function playCue(context, buffer, dir, when) {
   source.stop(when + length + 0.02);
 }
 
-function play(dir) { playCue(ctx, noise, dir, ctx.currentTime); }
+function play(dir) { playCue(ctx, voices[cueVoice] || noise, dir, ctx.currentTime); }
 
 // A key code 0..9 is one direction plus one sound.
 const keyDir   = key => dirNames()[key % dirNames().length];
@@ -533,6 +573,12 @@ function showStep(name) {
 }
 
 function setLayout(name) {
+  const needed = Math.ceil(KEYS / Object.keys(LAYOUTS[name]).length);
+  if (VOICE_NAMES.length < needed) {                 // fewer directions always means more sounds
+    warn(`The "${name}" layout needs ${needed} sounds and VOICE_NAMES lists ${VOICE_NAMES.length}. Add ${needed - VOICE_NAMES.length} more before using it.`);
+    $('layout').value = layout;
+    return;
+  }
   layout = name;
   $('layout').value = name;
   pin = []; showPin();
@@ -614,7 +660,7 @@ $('quizPlay').onclick = async () => {
 function answerQuiz(d) {
   if (!quizTarget) return say('Press "Play a random one" first.');
   const ok = d === quizTarget;
-  addLog({ mode: 'test', target: quizTarget, chosen: d, correct: ok });
+  addLog({ mode: 'test', code: cueVoice, target: quizTarget, chosen: d, correct: ok });
   say(ok ? `Correct: ${d}.` : `Not quite: it was ${quizTarget}, you chose ${d}.`);
   quizTarget = null;
   showScore();
@@ -645,9 +691,9 @@ $('practiceNums').replaceChildren(...Array.from({ length: KEYS }, (_, n) => {
 function showScore() {
   const who = $('pid').value.trim();
   const mine = mode => log.filter(r => r.mode === mode && r.layout === layout && r.participant === who);
-  const dirRows = mine('test');
+  const dirRows = mine('test').filter(r => r.code === cueVoice);
   $('calibScore').textContent = dirRows.length
-    ? 'Directions: ' + dirNames().map(d => {
+    ? `Directions with the ${cueVoice}: ` + dirNames().map(d => {
         const tries = dirRows.filter(r => r.target === d);
         return `${d} ${tries.filter(r => r.correct).length}/${tries.length}`;
       }).join(' · ')
@@ -657,6 +703,92 @@ function showScore() {
     ? `Key codes: ${keyRows.filter(r => r.correct).length}/${keyRows.length} correct`
     : 'Your key-code score appears here after the first answer.';
 }
+
+// ---- Step 1b: how far apart are the sounds? ----
+// Two scores per pair: the spectrum (which frequencies, loudness removed) and the envelope
+// (how it rises and falls). Sounds that differ only in frequency band are a trap: the low one
+// loses the loudness difference between the ears, which is what places it in space.
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const angle = -2 * Math.PI / len, half = len / 2;
+    for (let i = 0; i < n; i += len) {
+      for (let k = 0; k < half; k++) {
+        const wr = Math.cos(angle * k), wi = Math.sin(angle * k);
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + half] * wr - im[i + k + half] * wi;
+        const vi = re[i + k + half] * wi + im[i + k + half] * wr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi;
+        re[i + k + half] = ur - vr; im[i + k + half] = ui - vi;
+      }
+    }
+  }
+}
+
+function spectrum(buffer) {
+  const d = buffer.getChannelData(0), sr = buffer.sampleRate, N = 4096;
+  const power = new Float64Array(N / 2);
+  let frames = 0;
+  for (let start = 0; start < Math.max(1, d.length - N / 2); start += N / 2) {
+    const re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 0; i < N && start + i < d.length; i++) {
+      re[i] = d[start + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N));
+    }
+    fft(re, im);
+    for (let i = 0; i < N / 2; i++) power[i] += re[i] * re[i] + im[i] * im[i];
+    frames++;
+  }
+  const out = [];
+  for (let b = 0; b < 24; b++) {
+    const lo = 100 * Math.pow(160, b / 24), hi = 100 * Math.pow(160, (b + 1) / 24);
+    let sum = 0;
+    for (let i = Math.max(1, Math.round(lo * N / sr)); i < Math.min(N / 2, Math.round(hi * N / sr)); i++) sum += power[i];
+    out.push(10 * Math.log10(sum / Math.max(1, frames) + 1e-12));
+  }
+  const mean = out.reduce((a, b) => a + b, 0) / out.length;
+  return out.map(v => v - mean);                     // loudness removed: only the shape counts
+}
+
+function envelope(buffer) {
+  const d = buffer.getChannelData(0), hop = Math.round(buffer.sampleRate * 0.02), out = [];
+  for (let frame = 0; frame < 50; frame++) {
+    let sum = 0, n = 0;
+    for (let i = frame * hop; i < (frame + 1) * hop && i < d.length; i++) { sum += d[i] * d[i]; n++; }
+    out.push(n ? Math.sqrt(sum / n) : 0);
+  }
+  const peak = Math.max(...out) || 1;
+  return out.map(v => v / peak);
+}
+
+const distance = (a, b) => {                         // 0 = identical shape, 1 = opposite
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return (1 - dot / (Math.sqrt(na * nb) || 1)) / 2;
+};
+
+$('checkSounds').onclick = async () => {
+  await initAudio();
+  const names = usedVoices();
+  const measured = names.map(n => ({ n, s: spectrum(voices[n]), e: envelope(voices[n]) }));
+  const pairs = [];
+  for (let i = 0; i < measured.length; i++) {
+    for (let j = i + 1; j < measured.length; j++) {
+      const s = distance(measured[i].s, measured[j].s), e = distance(measured[i].e, measured[j].e);
+      pairs.push({ pair: `${measured[i].n} / ${measured[j].n}`, s, e, total: Math.round(100 * (s + e) / 2) });
+    }
+  }
+  pairs.sort((a, b) => a.total - b.total);
+  $('pairTable').innerHTML = '<table><tr><th>pair</th><th>frequencies</th><th>shape in time</th><th>overall</th></tr>' +
+    pairs.map((p, i) => `<tr><td>${p.pair}${i === 0 ? ' ← closest' : ''}</td><td>${Math.round(p.s * 100)}</td>` +
+                        `<td>${Math.round(p.e * 100)}</td><td>${p.total}</td></tr>`).join('') + '</table>';
+  say(`Closest pair: ${pairs[0].pair}. If your practice errors cluster there, replace one of the two.`);
+};
 
 // ---- Step 2: set the secrets ----
 $('goEnroll').onclick = () => { showStep('enroll'); say('Four directions for step 3, and a 4-digit number for steps 4 and 5.'); };
@@ -690,7 +822,7 @@ $('goLogin').onclick = async () => {
     if (!answer || run !== loginRun) return;
     entered.push(answer.chosen);
     drawDots('audioDots', i + 1);
-    addLog({ mode: 'audio-step', trial, step: i + 1, target: pin[i], chosen: answer.chosen,
+    addLog({ mode: 'audio-step', trial, step: i + 1, code: cueVoice, target: pin[i], chosen: answer.chosen,
              correct: answer.chosen === pin[i], ms: answer.ms, cues: answer.cues });
   }
   const ok = entered.every((d, i) => d === pin[i]);
@@ -898,6 +1030,18 @@ $('wipe').onclick = () => {
 try { log = JSON.parse(localStorage.getItem(STORE)) || []; } catch (e) { log = []; }
 trialNo = log.reduce((max, r) => Math.max(max, Number(r.trial) || 0), 0);
 $('numPin').value = String(randInt(10000)).padStart(4, '0');
+$('cueSel').replaceChildren(...VOICE_NAMES.map(name => {
+  const option = document.createElement('option');
+  option.value = name;
+  option.textContent = name;
+  return option;
+}));
+$('cueSel').value = cueVoice;
+$('cueSel').onchange = event => {
+  cueVoice = event.target.value;
+  showScore();
+  say(`Direction cues now use the ${cueVoice}. Run twenty random ones and compare the score with the other sounds.`);
+};
 buildRing();
 setLayout('cardinal');
 showStep('calib');
