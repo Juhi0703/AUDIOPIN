@@ -273,7 +273,7 @@
     <div class="chart" id="chartB"></div>
     <div class="row"><button id="keyReplay">Play that sound again</button></div>
     <div id="ring"></div>
-    <p class="hint">One sound per digit. Read its number from the chart, count that many steps clockwise from your digit, and tap where you land. Nothing on this screen shows which sound played.</p>
+    <p class="hint">One sound per digit. Read its number from the chart, count that many steps clockwise from your digit, and tap where you land. Until you tap, the same sound plays again two seconds after it ends. Nothing on this screen shows which sound played.</p>
   </section>
 
   <details class="log">
@@ -322,11 +322,11 @@ const LAYOUTS = {
 // appears in the two-direction layout, and never as the direction cue.
 const VOICE_NAMES = ['rain', 'knock', 'chirp', 'cowbell', 'cat'];  // chart rows, top to bottom
 const VOICE_FILES = {                                              // Mixkit, free licence, no attribution required
-  rain:    'mixkit-heavy-rain-2403.wav',          // "Heavy rain"               continuous, smooth
-  knock:   'mixkit-wood-hard-hit-2404.wav',      // "Wood hard hit"            one impulse
-  chirp:   'mixkit-double-little-bird-chirp-2405.wav', // "Double little bird chirp" two pulses
-  cowbell: 'mixkit-cowbell-sharp-hit-2406.wav',   // "Cowbell sharp hit"        metallic ring
-  cat:     'mixkit-cartoon-little-cat-meow-91.wav'             // your own recording         voice-like swell
+  rain:    'rain.wav',          // "Heavy rain"               continuous, smooth
+  knock:   'knock.wav',         // "Wood hard hit"            one impulse
+  chirp:   'chirp.wav',         // "Double little bird chirp" two pulses
+  cowbell: 'cowbell.wav',       // "Cowbell sharp hit"        metallic ring
+  cat:     'cat.wav'            // your own recording         voice-like swell
 };
 const VOICE_GAIN  = { rain: 1, knock: 1, chirp: 1, cowbell: 1, cat: 1 }; // set these by ear once you hear the files
 const CUE_VOICE   = VOICE_NAMES[0];                                // steps 1 and 3 start with the rain: steady noise places best
@@ -340,6 +340,7 @@ const CUE_MS   = Math.round(SOUND_SEC * 1000) + 800;
 const LEAD_MS  = 700;  // step 3 only: pause before each position starts
 const REACT_MS = 200;  // nobody reacts faster than this, so a quicker tap answers the previous cue
 const KEY_LEAD_MS = 250; // step 5: pause before the coded sound plays
+const REPEAT_MS   = 2000; // step 5: no answer yet? play the same sound again this long after it ends
 
 // ================= state =================
 let layout = 'cardinal';
@@ -350,6 +351,7 @@ let loginRun = 0;         // goes up whenever a running login must stop
 let cueTimer = null;      // interval that plays the cue cycle in step 3
 let pendingTap = null;    // finishes the position that is waiting for an answer
 let keyAnswer = null;     // set while step 5 waits for a tap on the ring
+let repeatTimer = null;   // step 5: plays the same sound again while no answer has come
 let cueVoice = CUE_VOICE; // which sound carries plain direction cues in steps 1 and 3
 let numEntry = '', numStart = 0, numDone = true;
 let trialNo = 0;
@@ -866,6 +868,7 @@ function stopLogin() {
   clearInterval(cueTimer); cueTimer = null;
   $('tap').onpointerdown = null;
   keyAnswer = null;
+  clearTimeout(repeatTimer); repeatTimer = null;
   $('keyReplay').onclick = null;
   if (pendingTap) { const finish = pendingTap; pendingTap = null; finish(null); }
 }
@@ -930,7 +933,7 @@ $('goKey').onclick = async () => {
     drawDots('keyDots', i + 1);
     addLog({ mode: 'key-step', trial, step: i + 1, key, code: codeName(key),
              target: expected, chosen: answer.chosen, correct: answer.chosen === expected,
-             wrapped: digit + key >= 10, replays: answer.replays, ms: answer.ms });
+             wrapped: digit + key >= 10, replays: answer.replays, repeats: answer.repeats, ms: answer.ms });
   }
   const ok = entered.every(Boolean);
   const ms = performance.now() - t0;
@@ -939,30 +942,44 @@ $('goKey').onclick = async () => {
 };
 
 // Plays one coded sound, then waits for a tap on the ring. Taps before the sound are ignored.
+// Until an answer comes, the SAME sound plays again REPEAT_MS after each play ends; the key
+// never changes mid-digit. Repeats (automatic) and replays (button) are logged separately.
 function askKey(key) {
   return new Promise(resolve => {
     pendingTap = resolve;
     const run = loginRun;
-    let replays = 0;
+    let replays = 0, repeats = 0;
+    const soundMs = Math.min(SOUND_SEC, voices[keyVoice(key)].duration) * 1000;
+    const scheduleRepeat = () => {                      // (re)start the countdown after every play
+      clearTimeout(repeatTimer);
+      repeatTimer = setTimeout(() => {
+        if (run !== loginRun || !keyAnswer) return;
+        repeats++;
+        playKey(key);
+        scheduleRepeat();
+      }, soundMs + REPEAT_MS);
+    };
     setTimeout(() => {
       if (run !== loginRun) return;                     // the step was cancelled while we waited
       playKey(key);
       const start = performance.now();
-      $('keyReplay').onclick = () => { replays++; playKey(key); };
+      $('keyReplay').onclick = () => { replays++; playKey(key); scheduleRepeat(); };
       keyAnswer = chosen => {
         keyAnswer = null;
+        clearTimeout(repeatTimer); repeatTimer = null;
         $('keyReplay').onclick = null;
         pendingTap = null;
         try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
-        resolve({ chosen, ms: performance.now() - start, replays });
+        resolve({ chosen, ms: performance.now() - start, replays, repeats });
       };
+      scheduleRepeat();
     }, KEY_LEAD_MS);
   });
 }
 
 // ================= 4. LOG =================
 const COLUMNS = ['time', 'participant', 'layout', 'mode', 'trial', 'step', 'key', 'code',
-                 'target', 'chosen', 'correct', 'wrapped', 'replays', 'ms', 'cues', 'delay_ms'];
+                 'target', 'chosen', 'correct', 'wrapped', 'replays', 'repeats', 'ms', 'cues', 'delay_ms'];
 const STORE = 'audiopin-log';
 
 function addLog(row) {
