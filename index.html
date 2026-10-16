@@ -124,7 +124,6 @@
   .head .spot { fill: var(--chip); stroke: var(--muted); stroke-width: 1.5; transition: fill 0.15s; }
   .head .spot.on { fill: var(--accent); stroke: var(--accent); }
   .head text { fill: var(--muted); font-size: 12px; font-family: inherit; }
-  .score { font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .pinview { font-weight: 700; }
 
   .dots { text-align: center; font-size: 1.5rem; letter-spacing: 0.35em; }
@@ -222,19 +221,12 @@
       <button id="quizPlay" class="primary">Play a random one</button>
     </div>
     <div class="row" id="quizBtns"></div>
-    <p class="score" id="calibScore"></p>
     <hr>
     <h2>Practise the key codes</h2>
     <p class="hint">Each cue is one sound from one direction. The pair means a number 0–9. The chart is public, so it can stay on screen.</p>
     <div class="chart" id="chartA"></div>
     <div class="row"><button id="keyPractice" class="primary">Play a key code</button></div>
     <div class="nums" id="practiceNums"></div>
-    <p class="score" id="keyScore"></p>
-    <hr>
-    <h2>How different are the sounds?</h2>
-    <p class="hint">Two sounds are reliably told apart when they differ both in what frequencies they hold and in how they rise and fall. Higher is better; the lowest pair is the one to watch in the practice above.</p>
-    <div class="row"><button id="checkSounds">Score every pair</button></div>
-    <div class="tablewrap" id="pairTable"></div>
   </section>
 
   <section id="enrollPanel" class="panel" hidden>
@@ -322,11 +314,11 @@ const LAYOUTS = {
 // appears in the two-direction layout, and never as the direction cue.
 const VOICE_NAMES = ['rain', 'knock', 'chirp', 'cowbell', 'cat'];  // chart rows, top to bottom
 const VOICE_FILES = {                                              // Mixkit, free licence, no attribution required
-  rain:    'rain.wav',          // "Heavy rain"               continuous, smooth
-  knock:   'knock.wav',         // "Wood hard hit"            one impulse
-  chirp:   'chirp.wav',         // "Double little bird chirp" two pulses
-  cowbell: 'cowbell.wav',       // "Cowbell sharp hit"        metallic ring
-  cat:     'cat.wav'            // your own recording         voice-like swell
+  rain:    'mixkit-heavy-rain-2403.wav',          // "Heavy rain"               continuous, smooth
+  knock:   'mixkit-wood-hard-hit-2404.wav',         // "Wood hard hit"            one impulse
+  chirp:   'mixkit-double-little-bird-chirp-2405.wav',         // "Double little bird chirp" two pulses
+  cowbell: 'mixkit-cowbell-sharp-hit-2406.wav',       // "Cowbell sharp hit"        metallic ring
+  cat:     'mixkit-cartoon-little-cat-meow-91.wav'            // your own recording         voice-like swell
 };
 const VOICE_GAIN  = { rain: 1, knock: 1, chirp: 1, cowbell: 1, cat: 1 }; // set these by ear once you hear the files
 const CUE_VOICE   = VOICE_NAMES[0];                                // steps 1 and 3 start with the rain: steady noise places best
@@ -596,14 +588,12 @@ function setLayout(name) {
   drawHead(null);
   buildChart('chartA');
   buildChart('chartB');
-  showScore();
 }
 $('layout').onchange = e => {
   stopLogin();
   setLayout(e.target.value);
   say('Directions changed, so the direction PIN was cleared and the key chart was rebuilt.');
 };
-$('pid').oninput = () => showScore();
 
 // Top view of the head with the sound positions. Lights up only in step 1, never while logging in.
 function drawHead(active) {
@@ -665,7 +655,6 @@ function answerQuiz(d) {
   addLog({ mode: 'test', code: cueVoice, target: quizTarget, chosen: d, correct: ok });
   say(ok ? `Correct: ${d}.` : `Not quite: it was ${quizTarget}, you chose ${d}.`);
   quizTarget = null;
-  showScore();
 }
 
 $('keyPractice').onclick = async () => {
@@ -681,7 +670,6 @@ function answerPractice(n) {
   say(ok ? `Correct: ${practiceKey} (${codeName(practiceKey)}).`
          : `It was ${practiceKey} (${codeName(practiceKey)}), you said ${n}.`);
   practiceKey = null;
-  showScore();
 }
 $('practiceNums').replaceChildren(...Array.from({ length: KEYS }, (_, n) => {
   const b = document.createElement('button');
@@ -689,108 +677,6 @@ $('practiceNums').replaceChildren(...Array.from({ length: KEYS }, (_, n) => {
   b.onclick = () => answerPractice(n);
   return b;
 }));
-
-function showScore() {
-  const who = $('pid').value.trim();
-  const mine = mode => log.filter(r => r.mode === mode && r.layout === layout && r.participant === who);
-  const dirRows = mine('test').filter(r => r.code === cueVoice);
-  $('calibScore').textContent = dirRows.length
-    ? `Directions with the ${cueVoice}: ` + dirNames().map(d => {
-        const tries = dirRows.filter(r => r.target === d);
-        return `${d} ${tries.filter(r => r.correct).length}/${tries.length}`;
-      }).join(' · ')
-    : 'Your score for each direction appears here after the first answer.';
-  const keyRows = mine('key-test');
-  $('keyScore').textContent = keyRows.length
-    ? `Key codes: ${keyRows.filter(r => r.correct).length}/${keyRows.length} correct`
-    : 'Your key-code score appears here after the first answer.';
-}
-
-// ---- Step 1b: how far apart are the sounds? ----
-// Two scores per pair: the spectrum (which frequencies, loudness removed) and the envelope
-// (how it rises and falls). Sounds that differ only in frequency band are a trap: the low one
-// loses the loudness difference between the ears, which is what places it in space.
-function fft(re, im) {
-  const n = re.length;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const angle = -2 * Math.PI / len, half = len / 2;
-    for (let i = 0; i < n; i += len) {
-      for (let k = 0; k < half; k++) {
-        const wr = Math.cos(angle * k), wi = Math.sin(angle * k);
-        const ur = re[i + k], ui = im[i + k];
-        const vr = re[i + k + half] * wr - im[i + k + half] * wi;
-        const vi = re[i + k + half] * wi + im[i + k + half] * wr;
-        re[i + k] = ur + vr; im[i + k] = ui + vi;
-        re[i + k + half] = ur - vr; im[i + k + half] = ui - vi;
-      }
-    }
-  }
-}
-
-function spectrum(buffer) {
-  const d = buffer.getChannelData(0), sr = buffer.sampleRate, N = 4096;
-  const power = new Float64Array(N / 2);
-  let frames = 0;
-  for (let start = 0; start < Math.max(1, d.length - N / 2); start += N / 2) {
-    const re = new Float64Array(N), im = new Float64Array(N);
-    for (let i = 0; i < N && start + i < d.length; i++) {
-      re[i] = d[start + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N));
-    }
-    fft(re, im);
-    for (let i = 0; i < N / 2; i++) power[i] += re[i] * re[i] + im[i] * im[i];
-    frames++;
-  }
-  const out = [];
-  for (let b = 0; b < 24; b++) {
-    const lo = 100 * Math.pow(160, b / 24), hi = 100 * Math.pow(160, (b + 1) / 24);
-    let sum = 0;
-    for (let i = Math.max(1, Math.round(lo * N / sr)); i < Math.min(N / 2, Math.round(hi * N / sr)); i++) sum += power[i];
-    out.push(10 * Math.log10(sum / Math.max(1, frames) + 1e-12));
-  }
-  const mean = out.reduce((a, b) => a + b, 0) / out.length;
-  return out.map(v => v - mean);                     // loudness removed: only the shape counts
-}
-
-function envelope(buffer) {
-  const d = buffer.getChannelData(0), hop = Math.round(buffer.sampleRate * 0.02), out = [];
-  for (let frame = 0; frame < 50; frame++) {
-    let sum = 0, n = 0;
-    for (let i = frame * hop; i < (frame + 1) * hop && i < d.length; i++) { sum += d[i] * d[i]; n++; }
-    out.push(n ? Math.sqrt(sum / n) : 0);
-  }
-  const peak = Math.max(...out) || 1;
-  return out.map(v => v / peak);
-}
-
-const distance = (a, b) => {                         // 0 = identical shape, 1 = opposite
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-  return (1 - dot / (Math.sqrt(na * nb) || 1)) / 2;
-};
-
-$('checkSounds').onclick = async () => {
-  await initAudio();
-  const names = usedVoices();
-  const measured = names.map(n => ({ n, s: spectrum(voices[n]), e: envelope(voices[n]) }));
-  const pairs = [];
-  for (let i = 0; i < measured.length; i++) {
-    for (let j = i + 1; j < measured.length; j++) {
-      const s = distance(measured[i].s, measured[j].s), e = distance(measured[i].e, measured[j].e);
-      pairs.push({ pair: `${measured[i].n} / ${measured[j].n}`, s, e, total: Math.round(100 * (s + e) / 2) });
-    }
-  }
-  pairs.sort((a, b) => a.total - b.total);
-  $('pairTable').innerHTML = '<table><tr><th>pair</th><th>frequencies</th><th>shape in time</th><th>overall</th></tr>' +
-    pairs.map((p, i) => `<tr><td>${p.pair}${i === 0 ? ' ← closest' : ''}</td><td>${Math.round(p.s * 100)}</td>` +
-                        `<td>${Math.round(p.e * 100)}</td><td>${p.total}</td></tr>`).join('') + '</table>';
-  say(`Closest pair: ${pairs[0].pair}. If your practice errors cluster there, replace one of the two.`);
-};
 
 // ---- Step 2: set the secrets ----
 $('goEnroll').onclick = () => { showStep('enroll'); say('Four directions for step 3, and a 4-digit number for steps 4 and 5.'); };
@@ -1040,7 +926,6 @@ $('wipe').onclick = () => {
   log = [];
   try { localStorage.removeItem(STORE); } catch (e) {}
   renderLog();
-  showScore();
 };
 
 // ================= start =================
@@ -1056,8 +941,7 @@ $('cueSel').replaceChildren(...VOICE_NAMES.map(name => {
 $('cueSel').value = cueVoice;
 $('cueSel').onchange = event => {
   cueVoice = event.target.value;
-  showScore();
-  say(`Direction cues now use the ${cueVoice}. Run twenty random ones and compare the score with the other sounds.`);
+  say(`Direction cues now use the ${cueVoice}. Every answer records which sound it used in the CSV.`);
 };
 buildRing();
 setLayout('cardinal');
