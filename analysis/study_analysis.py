@@ -16,10 +16,11 @@ Usage (from the repository root):
     python analysis/study_analysis.py data/*.csv --sus data/sus.csv --tex analysis/study_table.tex --plot analysis/study_times.png
     python analysis/study_analysis.py data/*.csv --exclude-practice 1   # drop each participant's first login per condition
 
-SUS CSV format (one row per participant x condition; answers 1-5 to the 10 standard SUS items):
-    participant,condition,q1,q2,q3,q4,q5,q6,q7,q8,q9,q10
-    P01,key,4,2,4,1,5,2,4,2,4,2
-condition is one of: normal, key, cue
+SUS answers (--sus): either
+  * the Google Forms export as it is (Responses -> Google Sheets -> File -> Download -> CSV), with a
+    "Participant ID" question, a "Condition" question (Normal PIN / AudioPIN key code / Wait-for-cue)
+    and the 10 SUS statements in standard order, as 1-5 linear scales; or
+  * our own template: participant,condition,q1,...,q10   (condition = normal, key or cue)
 """
 
 import argparse
@@ -116,14 +117,59 @@ def permutation_test(a, b, rounds=10000, seed=0):
     return (count + 1) / (rounds + 1)
 
 
+def sus_condition(text):
+    """Map a condition label (CSV code or Google Form choice) to normal / key / cue."""
+    t = (text or "").strip().lower()
+    if "normal" in t:
+        return "normal"
+    if "cue" in t or "wait" in t:
+        return "cue"
+    if "key" in t or "audiopin" in t:
+        return "key"
+    return t
+
+
+def sus_rows(path):
+    """Yield (participant, condition, [10 answers]) from either format:
+       - our template:          participant,condition,q1..q10
+       - a Google Forms export: Timestamp, <participant question>, <condition question>, 10 SUS statements
+         (columns found by their header text: 'participant'/'id', 'condition'/'method', then the
+         10 remaining columns in form order). Answers may be '4' or '4 - Agree'."""
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        header = [h.strip() for h in next(reader)]
+        low = [h.lower() for h in header]
+        def find(*words):
+            return next((i for i, h in enumerate(low) if any(w in h for w in words)), None)
+        if all(f"q{i}" in low for i in range(1, 11)):
+            p_col, c_col = low.index("participant"), low.index("condition")
+            q_cols = [low.index(f"q{i}") for i in range(1, 11)]
+        else:
+            p_col, c_col = find("participant", " id"), find("condition", "method", "version")
+            if p_col is None or c_col is None:
+                sys.exit(f"{path}: need a participant column and a condition column (found: {header})")
+            q_cols = [i for i in range(len(header)) if i not in (p_col, c_col) and "timestamp" not in low[i]
+                      and "email" not in low[i]][:10]
+            if len(q_cols) != 10:
+                sys.exit(f"{path}: expected 10 SUS answer columns, found {len(q_cols)}")
+        for row in reader:
+            if not any(cell.strip() for cell in row):
+                continue
+            answers = [int(row[i].strip().split()[0]) for i in q_cols]
+            if not all(1 <= a <= 5 for a in answers):
+                sys.exit(f"{path}: SUS answers must be 1-5, got {answers} for {row[p_col]}")
+            yield row[p_col].strip(), sus_condition(row[c_col]), answers
+
+
 def sus_scores(path):
-    """Standard SUS: odd items score-1, even items 5-score, sum x 2.5 -> 0..100."""
+    """Standard SUS: odd items score-1, even items 5-score, sum x 2.5 -> 0..100.
+    If a participant filled the same condition twice, the last answer counts."""
+    latest = {}
+    for participant, condition, q in sus_rows(path):
+        latest[(participant, condition)] = sum((q[i] - 1) if i % 2 == 0 else (5 - q[i]) for i in range(10)) * 2.5
     scores = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            q = [int(r[f"q{i}"]) for i in range(1, 11)]
-            s = sum((q[i] - 1) if i % 2 == 0 else (5 - q[i]) for i in range(10)) * 2.5
-            scores.setdefault(r["condition"].strip().lower(), []).append(s)
+    for (_, condition), score in latest.items():
+        scores.setdefault(condition, []).append(score)
     return scores
 
 

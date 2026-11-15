@@ -20,7 +20,16 @@ Circle one number per line: 1 = strongly disagree … 5 = strongly agree.
 | 9 | I felt very confident using the system. | ○ | ○ | ○ | ○ | ○ |
 | 10 | I needed to learn a lot of things before I could get going with this system. | ○ | ○ | ○ | ○ | ○ |
 
-**Entering the answers:** one row per form in `data/sus.csv`
-(`participant,condition,q1,...,q10`; condition = `normal`, `key` or `cue`).
-`analysis/study_analysis.py --sus data/sus.csv` computes the 0–100 score.
-Tip: a Google Form with these 10 items (linear scale 1–5) exports to a sheet you can paste into the CSV.
+## Using Google Forms (recommended)
+1. New form. Question 1: **Participant ID** (short answer, required).
+2. Question 2: **Condition** (multiple choice, required): `Normal PIN`, `AudioPIN key code`, `Wait-for-cue`.
+3. Questions 3–12: the 10 statements above, **in this order**, each as *Linear scale* 1–5
+   (label 1 = Strongly disagree, 5 = Strongly agree), required.
+4. The participant fills it once after **each** condition, right after finishing it.
+5. Responses → *Link to Sheets* → in the sheet: File → Download → **CSV** → save as `data/sus.csv`.
+   No editing needed: `analysis/study_analysis.py --sus data/sus.csv` reads the Google export directly
+   (it finds the ID and Condition columns by name and takes the 10 answers in order).
+   If someone submits the same condition twice, the last submission counts.
+
+Without Google Forms: type one row per form into `data/sus.csv` as
+`participant,condition,q1,...,q10` (condition = `normal`, `key` or `cue`).
