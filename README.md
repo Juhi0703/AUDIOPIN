@@ -48,6 +48,31 @@ python -m playwright install chromium
 python tests/smoke_test.py          # prints PASS/FAIL per check, then ALL PASS
 ```
 
+### Running the attack simulation
+`analysis/attack_simulation.py` computes how many PINs a Bayes-optimal observer breaks within 3 guesses,
+for every layout, against three attackers: **video only** (sees taps), **+ sound** (a microphone identifies
+which sound played) after watching 1, 2 or 3 logins, and **+ sound and side** (an off-centre microphone also
+hears left/centre/right; front and back are indistinguishable). Takes about a minute.
+```bash
+pip install numpy matplotlib
+python analysis/attack_simulation.py                                   # prints the table
+python analysis/attack_simulation.py --csv analysis/results.csv --plot analysis/attack_results.png
+python analysis/attack_simulation.py --sound-acc 0.8 --side-acc 0.6    # plug in measured identification rates
+python tests/test_attack_simulation.py                                 # checks it against hand-computed cases
+```
+Result with perfect identification (20,000 simulated PINs per cell; saved in `analysis/results.csv`):
+
+| Layout | Video only | + sound, 1 / 2 / 3 logins | + sound and side, 1 login |
+|---|---|---|---|
+| 5 directions × 2 sounds | 0.03% | 0.5 / 5.0 / 16.4% | 37.2% |
+| 4 × 3, four side positions | 0.03% | 2.4 / 19.8 / 46.9% | 18.8% |
+| 4 × 3, left/front/right/back | 0.03% | 2.4 / 19.8 / 46.9% | 79.8% |
+| 3 directions × 4 sounds | 0.03% | 7.6 / 43.1 / 74.7% | 100% |
+| 2 directions × 5 sounds | 0.03% | 18.8 / 70.2 / 91.4% | 100% |
+
+0.03% is chance (3 guesses out of 10,000). Every sound added to the chart makes codes easier to hear and
+easier to steal. `analysis/attack_results.png` plots the sound-only columns.
+
 ---
 
 ## Using the research prototype (`index.html`)
@@ -114,11 +139,17 @@ AUDIOPIN/
 │       ├── unlock.js        key-code unlock and wrong-PIN handling
 │       ├── home.js          unlocked screen, layout choice, auto-lock when hidden
 │       └── main.js          start-up, service-worker registration
+├── analysis/
+│   ├── attack_simulation.py  shoulder-surfing / microphone attack simulation
+│   ├── results.csv           its output table
+│   └── attack_results.png    its figure (one IEEE column)
 ├── assets/
 │   ├── sounds/              the five cue sounds (see below)
 │   └── icons/               app icons
-└── tests/
-    └── smoke_test.py        end-to-end browser test
+├── tests/
+│   ├── smoke_test.py        end-to-end browser test of both apps
+│   └── test_attack_simulation.py   checks the simulation against hand-computed cases
+└── requirements.txt         Python packages for analysis/ and tests/ (the apps need none)
 ```
 
 Scripts are plain (non-module) scripts loaded in order by each HTML page: `common/` first, page start-up
@@ -164,4 +195,4 @@ ours is an ordinary numeric PIN entered through one-time spatial-audio keys.
 ## AI usage declaration
 <!-- Edit this to match what you actually used, as the course requires. -->
 An AI assistant (Claude, Anthropic) was used to reorganise the codebase into separate files, write this
-README and the smoke test. The method, design decisions, sound selection and study are the authors' own.
+README, the smoke test and the attack-simulation script and its test. The method, design decisions, sound selection and study are the authors' own.
