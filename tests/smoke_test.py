@@ -48,7 +48,7 @@ async def main():
         check((await pg.text_content("#logCount"))=="1", "index: step1 quiz logged")
         rows = await pg.evaluate("document.querySelectorAll('#chartB .v').length")
         check(rows==12, f"index: cardinal chart has 12 cells ({rows})")
-        await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}")
+        await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")
         await pg.evaluate("$('numPin').value='2705'")
         await pg.click("#goKey")
         for i in range(4):
@@ -94,7 +94,7 @@ async def main():
         await pg.wait_for_selector("#lock:not([hidden])", timeout=10000)
         stored = await pg.evaluate("localStorage.getItem(STORE)")
         check("2705" not in stored and "verifier" in stored, "lock: only hash stored, not the PIN")
-        await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}")
+        await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")
         async def enter(pin):
             await pg.evaluate("_k.length=0"); await pg.click("#unlockBtn")
             for i in range(4):

@@ -73,6 +73,17 @@ Result with perfect identification (20,000 simulated PINs per cell; saved in `an
 0.03% is chance (3 guesses out of 10,000). Every sound added to the chart makes codes easier to hear and
 easier to steal. `analysis/attack_results.png` plots the sound-only columns.
 
+### Analysing the user-study data
+Export each session from `index.html` (**Results log → Download CSV**) into `data/`, then:
+```bash
+python analysis/study_analysis.py data/P*.csv --exclude-practice 1 --sus data/sus.csv \
+       --tex report/tables/study_table.tex --plot report/figures/study_times.png
+```
+It reports success rate and entry time per condition (median per participant, then mean ± SD),
+per-digit accuracy, repeats and replays, the wrap-around **timing leak** (wrapped vs. non-wrapped
+digits, permutation test), step-1 calibration accuracy and SUS scores, and writes the LaTeX table
+used in the report. The study procedure is in `docs/pilot_protocol.md`.
+
 ---
 
 ## Using the research prototype (`index.html`)
@@ -142,7 +153,12 @@ AUDIOPIN/
 ├── analysis/
 │   ├── attack_simulation.py  shoulder-surfing / microphone attack simulation
 │   ├── results.csv           its output table
-│   └── attack_results.png    its figure (one IEEE column)
+│   ├── attack_results.png    its figure (one IEEE column)
+│   └── study_analysis.py     analyses the CSV logs of the user study
+├── data/                    study logs and questionnaire templates (participant IDs only)
+├── docs/
+│   └── pilot_protocol.md    step-by-step user-study procedure
+├── report/                  IEEE LaTeX source of the report (upload this folder to Overleaf)
 ├── assets/
 │   ├── sounds/              the five cue sounds (see below)
 │   └── icons/               app icons
@@ -195,4 +211,5 @@ ours is an ordinary numeric PIN entered through one-time spatial-audio keys.
 ## AI usage declaration
 <!-- Edit this to match what you actually used, as the course requires. -->
 An AI assistant (Claude, Anthropic) was used to reorganise the codebase into separate files, write this
-README, the smoke test and the attack-simulation script and its test. The method, design decisions, sound selection and study are the authors' own.
+README, the smoke test, the attack-simulation and study-analysis scripts, and the LaTeX report skeleton
+(format, tables, figures, bibliography and per-section notes; the report text is written by the authors). The method, design decisions, sound selection and study are the authors' own.

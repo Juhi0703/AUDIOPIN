@@ -1,0 +1,170 @@
+% =====================================================================================
+%  AudioPIN -- course project report (IEEE conference format, IEEEtran V1.8b)
+%  Limit: 4 pages EXCLUDING references (course). PerCom WiP: 4 pages INCLUDING references.
+%
+%  HOW TO USE
+%   * Blue "Notes" boxes list the facts, numbers and citations each section needs.
+%     Write your own paragraphs below each box, then delete the box.
+%   * To hide every remaining note at once (e.g. to check the page count), uncomment
+%     the \excludecomment{notes} line below.
+%   * Tables/figures/equations are already filled with the real project data.
+%   * tables/study_table.tex is generated: python analysis/study_analysis.py data/*.csv --tex report/tables/study_table.tex
+% =====================================================================================
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{comment}
+
+% ---- writing notes (blue); delete each box once the paragraph is written ----
+\specialcomment{notes}{\begingroup\color{blue!55!black}\footnotesize\noindent\textbf{Notes:}\begin{itemize}\setlength\itemsep{0pt}}{\end{itemize}\endgroup}
+% \excludecomment{notes}   % <- uncomment to hide all notes
+
+\begin{document}
+
+% ----------------------------------------------------------------- title
+\title{AudioPIN: Observation-Resistant PIN Entry\\with One-Time Spatial-Audio Keys}
+% (working title -- change freely)
+
+\author{
+\IEEEauthorblockN{Author Name 1}
+\IEEEauthorblockA{P25CS0005\\Department, Institute\\email}
+\and
+\IEEEauthorblockN{Author Name 2}
+\IEEEauthorblockA{P25CS0007\\Department, Institute\\email}
+% \and
+% \IEEEauthorblockN{Instructor Name}   % co-author, if agreed
+% \IEEEauthorblockA{Department, Institute\\email}
+}
+
+\maketitle
+
+% ----------------------------------------------------------------- abstract
+\begin{abstract}
+\begin{notes}
+\item 100--150 words, one paragraph, no citations. Count before submitting.
+\item Cover in order: problem (PIN entry is observable: shoulder surfing, video) $\rightarrow$ idea (per-digit one-time key 0--9 delivered as a spatial sound over earphones; user taps $(d+k)\bmod 10$) $\rightarrow$ key property (every tap uniform, so video of any number of logins reveals nothing) $\rightarrow$ evaluation (Bayesian attack simulation over 5 layouts; pilot study vs.\ normal PIN) $\rightarrow$ headline numbers $\rightarrow$ main caveat (a microphone near the earbuds can identify \emph{which} sound played).
+\item Headline numbers available now: video-only attacker 0.03\% (= chance, 3 guesses of $10^4$); sound-identifying attacker after 1 login: 0.5\% (5 directions $\times$ 2 sounds) to 18.8\% (2 $\times$ 5). Add pilot time/success once collected.
+\end{notes}
+\end{abstract}
+
+\begin{IEEEkeywords}
+authentication, shoulder surfing, PIN entry, spatial audio, HRTF, usable security
+\end{IEEEkeywords}
+
+% ----------------------------------------------------------------- I
+\section{Introduction}
+\begin{notes}
+\item Target length: $\sim$0.5 column. Required by the brief: problem statement, motivation, objectives.
+\item Problem: PIN entry on phones in public is observable; a single glance or a video recording reveals a static PIN. Systematic reviews call recording-based shoulder surfing a major threat.
+\item Cite Naitou et al.\ \cite{naitou2026audiopin} in the FIRST paragraph: same name, spatial-audio PIN, CHI EA '26. One sentence on how ours differs (secret is an ordinary numeric PIN; one-time key per digit; no head tracking).
+\item Motivation: earphones are a private output channel almost everyone already carries (same assumption as SSSL \cite{perkovic2010sssl}).
+\item Objectives as a short list: (1) entry without waiting for a cue, (2) provable observation resistance against video, (3) first measured attack on a spatial-audio scheme including a microphone attacker, (4) choose sounds by temporal envelope, not only spectrum.
+\item End with one line on paper structure (optional if space is tight).
+\end{notes}
+
+% ----------------------------------------------------------------- II
+\section{Related Work}
+\begin{notes}
+\item Target length: $\sim$0.5 column. Group by idea, end each group with how AudioPIN differs.
+\item \textbf{Cognitive / challenge--response PIN entry:} Roth et al.\ \cite{roth2004pin} cognitive trapdoor games -- a full recording of one session breaks the deterministic version. SSSL \cite{perkovic2010sssl}: secret challenge digit spoken over earphones, $\sim$8\,s per 5-digit login; \cite{perkovic2010partially} shows side-channel \emph{timing} attacks are a real threat (relevant to our wrap-around leak, Sec.~V).
+\item \textbf{Audio/haptic cue methods:} The Phone Lock \cite{bianchi2011phonelock} and Spinlock \cite{bianchi2011spinlock}: user waits for / counts a cue, then taps. Our Step-3 baseline implements this style; its cost is waiting time.
+\item \textbf{Visible randomisation:} SwiPIN \cite{vonzezschwitz2015swipin} (3.7\,s, gesture mapping shown on screen) -- secure against a human observer of one entry, but the mapping is visible, so video helps.
+\item \textbf{Spatial audio:} Naitou et al.\ \cite{naitou2026audiopin}: secret = sequence of sounds selected by head-turning (AirPods head tracking), 20 participants, best 91.0\% success / 20.6\,s; no security evaluation, no baseline, secret assigned not memorised.
+\item Positioning sentence: first scheme that combines a numeric PIN, a fresh uniform key per digit, and a quantified microphone attacker.
+\end{notes}
+
+% ----------------------------------------------------------------- III
+\section{Proposed Approach}
+\begin{notes}
+\item Target length: $\sim$1 column incl.\ Fig.~\ref{fig:screen} and the equations. Explain the method step by step; use the example below.
+\item Threat model in 3--4 lines: attacker sees screen and taps (video, many sessions), may record audio near the user; device not compromised; user wears stereo earphones (Mono Audio off -- the app's earphone check enforces this).
+\item Per digit: wait 250--300\,ms, play one cue; the cue's \emph{sound} (row) and \emph{direction} (column) of the public chart give the key; no tap $\Rightarrow$ the same cue repeats 2\,s after it ends.
+\item Worked example to include: PIN 2\,7\,0\,5, keys 3\,9\,1\,4 $\rightarrow$ taps 5\,6\,1\,9; next login keys 7\,2\,8\,0 $\rightarrow$ taps 9\,9\,8\,5.
+\item Layouts: sounds needed $=\lceil 10/n\rceil$; only $2\times5$ and $5\times2$ fill the chart exactly (Table~\ref{tab:attack} lists all five).
+\item Sound design rule learned: sounds must differ in temporal envelope (continuous, single impulse, pulses, ring, swell), each with a sharp onset and treble, because the interaural level difference that places a sound exists mainly above $\sim$1.5\,kHz. Measured with the browser HRTF: left vs.\ right $\approx$12\,dB ILD and 0.75\,ms ITD; front vs.\ back 0.0\,dB / 0.000\,ms (identical signals; cf.\ front--back confusions with non-individual HRTFs \cite{wenzel1993localization,wightman1999frontback}).
+\item Implementation (2--3 lines): browser app, Web Audio API HRTF \texttt{PannerNode} \cite{w3c2021webaudio}; recordings from Mixkit \cite{mixkit}, trimmed to 1\,s, RMS-equalised; keys from \texttt{crypto.getRandomValues}; lock app stores only a salted PBKDF2 hash; code \cite{audiopin2026code}.
+\end{notes}
+
+\noindent For a PIN digit $d\in\{0,\dots,9\}$ and a layout with $n$ directions, a fresh key is drawn and encoded as a (sound, direction) pair:
+\begin{equation}
+k \sim \mathcal{U}\{0,\dots,9\},\qquad r=\left\lfloor k/n \right\rfloor,\qquad c = k \bmod n .
+\label{eq:key}
+\end{equation}
+The user taps $t=(d+k)\bmod 10$, and the device recovers $d=(t-k)\bmod 10$. Because $k$ is uniform and independent of $d$,
+\begin{equation}
+\Pr[t \mid d] = \tfrac{1}{10}\quad\text{for every } d,
+\label{eq:uniform}
+\end{equation}
+so the taps of any number of observed logins carry no information about the PIN.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\columnwidth]{figures/entry_screen.png}
+\caption{Key-code entry (four side positions, three sounds). The public chart maps each (sound, direction) cue to a key; the user counts that many steps clockwise from the PIN digit on the ring and taps. Nothing on screen shows which cue played.}
+\label{fig:screen}
+\end{figure}
+
+% ----------------------------------------------------------------- IV
+\section{Preliminary Results}
+\begin{notes}
+\item Target length: $\sim$1.25 columns incl.\ Table~\ref{tab:attack}, Fig.~\ref{fig:attack}, Table~\ref{tab:study}.
+\item \textbf{A. Attack simulation} (\texttt{analysis/attack\_simulation.py}): Bayes-optimal attacker, uniform random PINs, 20{,}000 PINs per cell, 3 guesses. Three attackers: video only; + sound identified (microphone) after 1--3 logins; + sound and side (off-centre microphone, front/back indistinguishable). Validated against hand-computed cases (e.g.\ $2\times5$, sound heard once: exactly $3/16=18.75\%$).
+\item Observations to state from Table~\ref{tab:attack}: (i) video alone = chance (0.03\%) in every layout, confirming (\ref{eq:uniform}); (ii) every extra sound in the chart makes the key easier to steal: after 3 logins 16\% ($5\times2$) vs.\ 91\% ($2\times5$); (iii) with side information, front/back confusability \emph{helps} security: four side positions 18.8\% vs.\ left/front/right/back 79.8\%.
+\item \textbf{B. Pilot study}: participants $N$, design (within-subjects, counterbalanced: normal PIN, key code, wait-for-cue), practice + 5 logins per condition, earphone type, volume. Report Table~\ref{tab:study}; state honestly these are first-session numbers (SSSL needed weeks of practice).
+\item \textbf{C. Timing leak}: digit $d$ wraps past 9 with probability $d/10$; report wrapped vs.\ non-wrapped response time and the permutation-test $p$ from \texttt{study\_analysis.py}. If significant, it is a residual leak (cf.\ \cite{perkovic2010partially}).
+\item Optional if collected: attackers' sound/side identification rates from a 30\,cm phone recording $\rightarrow$ re-run the simulation with \texttt{--sound-acc/--side-acc}.
+\end{notes}
+
+\begin{table}[t]
+\centering
+\caption{PINs broken within 3 guesses (\%), simulated, perfect identification. Chance level is 0.03\%.}
+\label{tab:attack}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccc}
+\toprule
+Layout (dirs $\times$ sounds) & Video & + sound, 1/2/3 logins & + side, 1 login \\
+\midrule
+$5\times2$                         & 0.03 & 0.5 / 5.0 / 16.4  & 37.2 \\
+$4\times3$, four side positions    & 0.03 & 2.4 / 19.8 / 46.9 & 18.8 \\
+$4\times3$, L/F/R/B                & 0.03 & 2.4 / 19.8 / 46.9 & 79.8 \\
+$3\times4$                         & 0.03 & 7.6 / 43.1 / 74.7 & 100 \\
+$2\times5$                         & 0.03 & 18.8 / 70.2 / 91.4 & 100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/attack_results.png}
+\caption{PINs broken within 3 guesses by an attacker who identifies the sound of every cue, versus the number of logins observed. Both 4-direction layouts coincide for this attacker.}
+\label{fig:attack}
+\end{figure}
+
+\input{tables/study_table}
+
+% ----------------------------------------------------------------- V
+\section{Conclusion}
+\begin{notes}
+\item Target length: $\sim$0.3 column. Summarise contributions (match the objectives in Sec.~I), the main limitation, and next steps.
+\item Limitations to name: acoustic leakage of \emph{which} sound (layout trade-off), wrap-around timing leak, first-session usability only, generic HRTF (front/back), small $N$, web app is an app lock not an OS lock, 10{,}000-PIN space means a stolen hash is brute-forceable.
+\item Next steps: constant minimum time per digit or relative-position answers; cap on automatic repeats; measured microphone attack; longer-term study.
+\end{notes}
+
+% ----------------------------------------------------------------- AI declaration (required by the course)
+\section*{AI Usage Declaration}
+\begin{notes}
+\item Required by the course. Be specific and truthful; list tool, what it did, and what you did.
+\item Facts from this project for the AI part: Claude (Anthropic) reorganised the codebase into modules, wrote the README, the end-to-end smoke test, \texttt{attack\_simulation.py} (re-implemented from the project's threat model; results matched the earlier table), \texttt{study\_analysis.py}, this LaTeX skeleton with per-section notes, Tables~\ref{tab:attack}--\ref{tab:study} formatting, figures, and checked the bibliography entries.
+\item Add anything else you used AI for (e.g.\ language polishing), and state that the method, design decisions, study and the paper's text are the authors' own -- only if true.
+\end{notes}
+
+% ----------------------------------------------------------------- references
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
