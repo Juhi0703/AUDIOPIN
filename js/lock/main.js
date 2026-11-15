@@ -4,6 +4,7 @@ const saved = loadState();
 const startLayout = saved && LAYOUTS[saved.layout] ? saved.layout : DEFAULT_LAYOUT;
 applyLayout(startLayout);
 $('layoutSel').value = startLayout;
+$('setupLayout').value = startLayout;
 buildRing('ring', d => { if (keyAnswer) keyAnswer(d); });
 if (saved) goLock(''); else startSetup(false);
 

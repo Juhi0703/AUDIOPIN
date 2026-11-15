@@ -19,11 +19,29 @@ say "pilot" and report N honestly.
    - **Step 5 – key code**: 1 practice + 5 logins.
    - *(optional)* **Step 3 – wait-for-cue**: set a direction PIN in Step 2 first, then 1 practice + 5 logins.
 5. **SUS** after each condition (10 standard items, 1–5). Enter answers in `data/sus.csv` (see `data/sus_template.csv`).
-6. **Results log → Download CSV** at the end of the session. Save as `data/P01.csv` (one file per session is fine; duplicates are removed by the script).
+6. **Save the data** at the end of the session (see *Collecting the CSV files* below).
+
+## Collecting the CSV files
+The prototype keeps every answer in the phone's browser storage (it survives a reload) until you press
+**Clear log**. At the end of each session open **Results log** and use one of:
+
+| Button | Best for | What happens |
+|---|---|---|
+| **Share CSV** (shown only on phones that support it) | Android Chrome, iPhone Safari | Opens the share sheet: send `audiopin-P01-<date>.csv` to WhatsApp (yourself), Google Drive, Gmail, Nearby Share… |
+| **Download CSV** | laptop, Android | Saves `audiopin-P01-<date>.csv` to Downloads (iPhone: Files app → Downloads) |
+| **Show CSV to copy** | anything else | Shows the text; copy-paste it into a file named `audiopin-P01.csv` |
+
+Rules that keep the data clean:
+- Type the participant ID **before** they start — it is stored in every row and in the file name.
+- One phone for everyone? Download/share after each participant, then **Clear log** (tap twice) before the next one.
+  If you forget to clear, nothing is lost: the script removes duplicate rows when files overlap.
+- Several phones? Each phone's file is separate; just put them all in `data/`.
+- Put every file in the repository's `data/` folder on your laptop. They are git-ignored on purpose
+  (participant data); commit them only with consent (`git add -f data/...`).
 
 ## Analyse
 ```bash
-python analysis/study_analysis.py data/P*.csv --exclude-practice 1 --sus data/sus.csv \
+python analysis/study_analysis.py data/*.csv --exclude-practice 1 --sus data/sus.csv \
        --tex report/tables/study_table.tex --plot report/figures/study_times.png
 ```
 `--exclude-practice 1` drops each participant's first login per condition (the practice one).

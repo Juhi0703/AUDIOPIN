@@ -24,6 +24,7 @@ function sameBytes(a, b) {
 }
 
 // PINs people pick most often fall to the first guesses, whatever the entry method.
+// Used only for a reminder during setup; such PINs are still accepted.
 function tooEasy(pin) {
   if (/^(\d)\1{3}$/.test(pin)) return true;                       // 0000, 1111, ...
   const steps = [1, 2, 3].map(i => (pin.charCodeAt(i) - pin.charCodeAt(i - 1) + 10) % 10);

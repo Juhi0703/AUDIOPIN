@@ -41,13 +41,33 @@ function renderLog() {
   if (!$('csvText').hidden) $('csvText').value = toCsv();
 }
 
+// File name carries the participant and date, e.g. audiopin-P03-2026-11-17.csv
+function csvName() {
+  const id = $('pid').value.trim().replace(/[^A-Za-z0-9_-]/g, '') || 'unknown';
+  return `audiopin-${id}-${new Date().toISOString().slice(0, 10)}.csv`;
+}
+const csvFile = () => new File([toCsv()], csvName(), { type: 'text/csv' });
+
 $('dl').onclick = () => {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([toCsv()], { type: 'text/csv' }));
-  link.download = `audiopin-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.href = URL.createObjectURL(csvFile());
+  link.download = csvName();
   document.body.appendChild(link);
   link.click();
   link.remove();
+};
+
+// Phones: send the CSV straight to WhatsApp, Drive, Gmail, Nearby Share... (Web Share API, where supported).
+function canShareCsv() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [csvFile()] })); } catch (e) { return false; }
+}
+$('shareCsv').hidden = !canShareCsv();
+$('shareCsv').onclick = async () => {
+  try {
+    await navigator.share({ files: [csvFile()], title: csvName(), text: 'AudioPIN study log' });
+  } catch (e) {
+    if (e.name !== 'AbortError') say('Sharing failed — use Download CSV or Show CSV to copy instead.');
+  }
 };
 
 $('showCsv').onclick = () => {

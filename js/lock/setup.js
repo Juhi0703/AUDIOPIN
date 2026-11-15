@@ -12,8 +12,22 @@ function startSetup(skipCheck) {
   $('setupCancel').hidden = !(skipCheck && loadState());
   drawDots('pinDots', 0);
   $('setupMsg').textContent = '';
+  const current = loadState();
+  $('setupLayout').value = current && LAYOUTS[current.layout] ? current.layout : DEFAULT_LAYOUT;
 }
-$('setupCancel').onclick = () => goHome();
+
+// Directions can be chosen while setting the PIN, so a tester picks the layout before the first unlock.
+fillLayoutSelect('setupLayout');
+$('setupLayout').onchange = event => {
+  applyLayout(event.target.value);
+  $('layoutSel').value = event.target.value;
+  initAudio();                                       // decode any extra sounds this layout needs now
+};
+$('setupCancel').onclick = () => {
+  const state = loadState();
+  if (state) { applyLayout(state.layout); $('layoutSel').value = state.layout; }
+  goHome();
+};
 
 // ---- earphone check: catches phone-speaker playback, one bud, or Mono Audio ----
 $('checkPlay').onclick = async () => {
@@ -49,10 +63,10 @@ async function setupKey(k) {
   await sleep(150);
   drawDots('pinDots', 0);
   if (!firstPin) {
-    if (tooEasy(pin)) { $('setupMsg').textContent = 'Too easy to guess. Pick another.'; return; }
     firstPin = pin;
     $('pinTitle').textContent = 'Type it again';
-    $('setupMsg').textContent = '';
+    // Any PIN is accepted (testers need to choose freely); an easy one only gets a reminder.
+    $('setupMsg').textContent = tooEasy(pin) ? 'Easy to guess — fine for testing, avoid it for real use.' : '';
     return;
   }
   if (pin !== firstPin) {
@@ -64,8 +78,10 @@ async function setupKey(k) {
   $('setupMsg').textContent = 'Saving…';
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const previous = loadState() || {};
-  const state = { salt: b64(salt), verifier: b64(await hashPin(pin, salt)), fails: 0, lockedUntil: 0,
-                  layout: previous.layout || DEFAULT_LAYOUT };             // a new PIN keeps the chosen layout
+  const layout = LAYOUTS[$('setupLayout').value] ? $('setupLayout').value : (previous.layout || DEFAULT_LAYOUT);
+  const state = { salt: b64(salt), verifier: b64(await hashPin(pin, salt)), fails: 0, lockedUntil: 0, layout };
+  applyLayout(layout);
+  $('layoutSel').value = layout;
   if (previous.reveal) {                                                   // ...and the view-PIN setting
     try { state.reveal = await encryptPin(pin); } catch (e) {}
   }

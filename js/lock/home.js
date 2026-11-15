@@ -15,12 +15,7 @@ function applyLayout(name) {
   buildChart('chart', DIRECTIONS.map(d => d[0]), usedVoices());
 }
 
-$('layoutSel').replaceChildren(...Object.entries(LAYOUTS).map(([value, l]) => {
-  const option = document.createElement('option');
-  option.value = value;
-  option.textContent = l.label;
-  return option;
-}));
+fillLayoutSelect('layoutSel');
 
 $('layoutSel').onchange = async event => {
   const name = event.target.value, state = loadState();

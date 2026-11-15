@@ -22,5 +22,15 @@ const usedVoices = () => voicesFor(DIRECTIONS.length);
 const keyDir     = key => DIRECTIONS[keyColumn(key, DIRECTIONS.length)];   // [name, angle]
 const keyVoice   = key => usedVoices()[keyRow(key, DIRECTIONS.length)];
 
+// Fills a <select> with every layout (used on the setup screen and the unlocked screen).
+function fillLayoutSelect(id) {
+  $(id).replaceChildren(...Object.entries(LAYOUTS).map(([value, l]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = l.label;
+    return option;
+  }));
+}
+
 const SCREENS = ['setup', 'lock', 'entry', 'home'];
 function show(name) { for (const s of SCREENS) $(s).hidden = s !== name; }

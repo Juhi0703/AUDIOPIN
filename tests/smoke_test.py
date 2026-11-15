@@ -3,7 +3,7 @@
 Starts a local web server on the repository, then checks that:
   - all five sounds load from assets/sounds
   - index.html: steps 1, 3, 4 and 5 work, every layout builds its chart, CSV export works
-  - lock.html: earphone check, PIN setup (common PINs refused, only a hash stored),
+  - lock.html: earphone check, PIN setup (any PIN accepted, directions chosen, only a hash stored),
     unlock with key codes, lockout after 3 wrong PINs that survives a reload,
     and the service worker caches every file it lists
   - no JavaScript errors and no missing files
@@ -67,6 +67,11 @@ async def main():
         for lay in ["lateral","wide","trio","pair"]:
             await pg.select_option("#layout", lay)
         check(await pg.evaluate("document.querySelectorAll('#chartA .v').length")==10, "index: pair layout chart 10 cells")
+        await pg.click("details.log summary"); await pg.evaluate("$('pid').value='P09'")
+        async with pg.expect_download() as dl:
+            await pg.click("#dl")
+        name = (await dl.value).suggested_filename
+        check(name.startswith("audiopin-P09-") and name.endswith(".csv"), f"index: CSV file named by participant ({name})")
         csv = await pg.evaluate("toCsv()")
         check(csv.splitlines()[0].startswith("time,participant,layout"), "index: CSV export header")
         check(not errs, f"index: no JS errors {errs}"); check(not fails, f"index: no 404s {fails}")
@@ -87,11 +92,18 @@ async def main():
         check(await pg.is_visible("#pinPanel"), "lock: earphone check passes after 3 correct")
         for c in "1234": await pg.click(f"#setupPad button:text-is('{c}')")
         await pg.wait_for_timeout(300)
-        check("Too easy" in await pg.text_content("#setupMsg"), "lock: common PIN refused")
+        check("Type it again" in await pg.text_content("#pinTitle") and "Easy to guess" in await pg.text_content("#setupMsg"),
+              "lock: easy PIN accepted, with a reminder only")
+        for c in "9999": await pg.click(f"#setupPad button:text-is('{c}')")
+        await pg.wait_for_timeout(300)
+        check("didn't match" in await pg.text_content("#setupMsg"), "lock: mismatched confirmation starts again")
+        await pg.select_option("#setupLayout", "side")
         for _ in range(2):
             for c in "2705": await pg.click(f"#setupPad button:text-is('{c}')")
             await pg.wait_for_timeout(300)
         await pg.wait_for_selector("#lock:not([hidden])", timeout=10000)
+        lay = await pg.evaluate("[loadState().layout, document.querySelectorAll('#chart .v').length, $('layoutSel').value]")
+        check(lay == ["side", 12, "side"], f"lock: directions chosen during setup are saved and used {lay}")
         stored = await pg.evaluate("localStorage.getItem(STORE)")
         check("2705" not in stored and "verifier" in stored, "lock: only hash stored, not the PIN")
         await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")

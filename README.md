@@ -12,7 +12,7 @@ The repository contains two browser apps that share one audio engine:
 | Page | What it is |
 |---|---|
 | `index.html` | **Research prototype** used in the study: direction test, key-code practice, and three login conditions (wait-for-cue, normal PIN baseline, key code) with a CSV results log. |
-| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup (hash only by default), key-code unlock, lockout after 3 wrong PINs, change PIN and an optional *view my PIN* setting on the unlocked screen, works offline. |
+| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup with a choice of directions (hash only by default), key-code unlock, lockout after 3 wrong PINs, change PIN and an optional *view my PIN* setting on the unlocked screen, works offline. |
 
 No build step, no dependencies: plain HTML, CSS and JavaScript using the Web Audio API's HRTF panner.
 
@@ -39,8 +39,8 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-29 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
-builds its chart, CSV export, PIN setup refuses common PINs and stores only a hash, lockout survives a
+32 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+builds its chart, CSV export named by participant, PIN setup accepts any PIN, saves the chosen directions and stores only a hash, lockout survives a
 reload, change PIN and the optional view-PIN setting work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash
 pip install playwright
@@ -74,15 +74,19 @@ Result with perfect identification (20,000 simulated PINs per cell; saved in `an
 easier to steal. `analysis/attack_results.png` plots the sound-only columns.
 
 ### Analysing the user-study data
-Export each session from `index.html` (**Results log → Download CSV**) into `data/`, then:
+Export each session from `index.html` (**Results log → Download CSV**, or **Share CSV** on phones) into `data/`, then:
 ```bash
-python analysis/study_analysis.py data/P*.csv --exclude-practice 1 --sus data/sus.csv \
+python analysis/study_analysis.py data/*.csv --exclude-practice 1 --sus data/sus.csv \
        --tex report/tables/study_table.tex --plot report/figures/study_times.png
 ```
 It reports success rate and entry time per condition (median per participant, then mean ± SD),
 per-digit accuracy, repeats and replays, the wrap-around **timing leak** (wrapped vs. non-wrapped
 digits, permutation test), step-1 calibration accuracy and SUS scores, and writes the LaTeX table
 used in the report. The study procedure is in `docs/pilot_protocol.md`.
+
+**Collect study data with `index.html`, not `lock.html`.** The lock app deliberately keeps no log: a per-digit
+record of keys and taps would let anyone reading it recover the PIN. Raw study CSVs in `data/` are git-ignored
+(`audiopin-*.csv`) so participant data is not published by accident; add them with `git add -f` only with consent.
 
 ---
 
@@ -97,7 +101,7 @@ used in the report. The study procedure is in `docs/pilot_protocol.md`.
    many steps clockwise from your digit, tap where you land. The same sound repeats every 2 s until you tap.
 
 Choose the **Directions** layout at the top. Results are kept in the browser and exported with
-**Results log → Download CSV**. Columns:
+**Results log → Download CSV** (file `audiopin-<participant>-<date>.csv`), **Share CSV** (phones: WhatsApp, Drive, e-mail…) or **Show CSV to copy**. Columns:
 `time, participant, layout, mode, trial, step, key, code, target, chosen, correct, wrapped, replays, repeats, ms, cues, delay_ms`.
 
 ### Layouts
@@ -183,7 +187,8 @@ If a file fails to load, a synthetic stand-in plays and a warning is shown.
 - The lock app stores only a salted PBKDF2-SHA-256 hash (150,000 iterations), compared in constant time;
   the PIN is judged as a whole, so a wrong entry never reveals which digit was wrong.
 - **Changing / viewing the PIN** (unlocked screen → *Your PIN*): *Change PIN* sets a new PIN (typed twice,
-  common PINs refused). *Let me view my PIN on this device* is **off by default**. When turned on, the PIN is
+  any PIN is accepted; easy ones get a reminder). The **Directions** layout can be chosen while setting the PIN
+  and changed later on the unlocked screen. *Let me view my PIN on this device* is **off by default**. When turned on, the PIN is
   also stored AES-GCM-encrypted with a non-extractable WebCrypto key kept in IndexedDB, and is shown only while
   *Hold to show PIN* is pressed (at most 10 s). Turning it off deletes the encrypted copy and the key. This is a
   convenience trade-off: with it on, anyone who can unlock the phone and run code in the app could recover the PIN.
