@@ -1,0 +1,73 @@
+/* Results log: every answer becomes a row, kept in localStorage and exported as CSV for analysis. */
+
+const COLUMNS = ['time', 'participant', 'layout', 'mode', 'trial', 'step', 'key', 'code',
+                 'target', 'chosen', 'correct', 'wrapped', 'replays', 'repeats', 'ms', 'cues', 'delay_ms'];
+const LOG_STORE = 'audiopin-log';
+let log = [];
+
+function addLog(row) {
+  log.push({
+    time: new Date().toISOString(),
+    participant: $('pid').value.trim(),
+    layout,
+    delay_ms: Math.round(outputDelayMs()),
+    ...row,
+    ms: row.ms === undefined ? '' : Math.round(row.ms)
+  });
+  try { localStorage.setItem(LOG_STORE, JSON.stringify(log)); } catch (e) {} // survives a reload; the CSV is the real backup
+  renderLog();
+}
+
+function loadLog() {
+  try { log = JSON.parse(localStorage.getItem(LOG_STORE)) || []; } catch (e) { log = []; }
+  trialNo = log.reduce((max, r) => Math.max(max, Number(r.trial) || 0), 0);
+}
+
+function toCsv() {
+  const quote = v => {
+    const s = v === undefined || v === null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return [COLUMNS.join(',')].concat(log.map(r => COLUMNS.map(c => quote(r[c])).join(','))).join('\n');
+}
+
+function renderLog() {
+  $('logCount').textContent = log.length;
+  const esc = v => String(v ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const cols = COLUMNS.slice(1);                       // the table skips the timestamp to stay narrow
+  $('logView').innerHTML = '<table><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>' +
+    log.slice(-10).reverse().map(r => '<tr>' + cols.map(c => `<td>${esc(r[c])}</td>`).join('') + '</tr>').join('') +
+    '</table>';
+  if (!$('csvText').hidden) $('csvText').value = toCsv();
+}
+
+$('dl').onclick = () => {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([toCsv()], { type: 'text/csv' }));
+  link.download = `audiopin-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+$('showCsv').onclick = () => {
+  const box = $('csvText');
+  box.hidden = !box.hidden;
+  box.value = toCsv();
+  if (!box.hidden) box.select();
+};
+
+let wipeArmed = false;   // clearing needs two taps within 4 s
+$('wipe').onclick = () => {
+  if (!wipeArmed) {
+    wipeArmed = true;
+    $('wipe').textContent = `Tap again to delete ${log.length} rows`;
+    setTimeout(() => { wipeArmed = false; $('wipe').textContent = 'Clear log'; }, 4000);
+    return;
+  }
+  wipeArmed = false;
+  $('wipe').textContent = 'Clear log';
+  log = [];
+  try { localStorage.removeItem(LOG_STORE); } catch (e) {}
+  renderLog();
+};

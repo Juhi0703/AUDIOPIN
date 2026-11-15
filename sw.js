@@ -1,10 +1,15 @@
 // AudioPIN Lock — service worker: lets the installed app open with no network.
 // Network first, so a fresh upload to GitHub Pages shows up straight away; the cache is the fallback.
-const CACHE = 'audiopin-lock-v2';   // bump this whenever the file list changes, so installed copies refresh
+// Must stay in the repository root so its scope covers lock.html.
+const CACHE = 'audiopin-lock-v3';   // bump this whenever the file list changes, so installed copies refresh
 const FILES = [
-  './lock.html', './manifest.webmanifest',
-  './icon-192.png', './icon-512.png', './icon-512-maskable.png',
-  './rain.wav', './knock.wav', './chirp.wav', './cowbell.wav', './cat.wav'
+  './lock.html', './manifest.webmanifest', './css/lock.css',
+  './js/common/config.js', './js/common/utils.js', './js/common/audio-engine.js', './js/common/keycode.js',
+  './js/lock/settings.js', './js/lock/sound.js', './js/lock/pin-storage.js', './js/lock/setup.js',
+  './js/lock/lock-screen.js', './js/lock/unlock.js', './js/lock/home.js', './js/lock/main.js',
+  './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/icon-512-maskable.png',
+  './assets/sounds/rain.wav', './assets/sounds/knock.wav', './assets/sounds/chirp.wav',
+  './assets/sounds/cowbell.wav', './assets/sounds/cat.wav'
 ];
 
 self.addEventListener('install', event => {
