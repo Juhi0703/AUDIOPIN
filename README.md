@@ -12,7 +12,7 @@ The repository contains two browser apps that share one audio engine:
 | Page | What it is |
 |---|---|
 | `index.html` | **Research prototype** used in the study: direction test, key-code practice, and three login conditions (wait-for-cue, normal PIN baseline, key code) with a CSV results log. |
-| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup (hash only), key-code unlock, lockout after 3 wrong PINs, works offline. |
+| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup (hash only by default), key-code unlock, lockout after 3 wrong PINs, change PIN and an optional *view my PIN* setting on the unlocked screen, works offline. |
 
 No build step, no dependencies: plain HTML, CSS and JavaScript using the Web Audio API's HRTF panner.
 
@@ -39,9 +39,9 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-23 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+29 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
 builds its chart, CSV export, PIN setup refuses common PINs and stores only a hash, lockout survives a
-reload, the service worker caches every file, and there are no JavaScript errors or missing files.
+reload, change PIN and the optional view-PIN setting work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash
 pip install playwright
 python -m playwright install chromium
@@ -145,6 +145,7 @@ AUDIOPIN/
 │       ├── settings.js      layouts, lockout limits, screen switching
 │       ├── sound.js         audio set-up for this page
 │       ├── pin-storage.js   salted PBKDF2 hash, constant-time compare, common-PIN filter
+│       ├── pin-reveal.js    optional, opt-in "view my PIN" (AES-GCM, key in IndexedDB)
 │       ├── setup.js         earphone check and PIN setup
 │       ├── lock-screen.js   clock and lockout countdown
 │       ├── unlock.js        key-code unlock and wrong-PIN handling
@@ -181,6 +182,11 @@ If a file fails to load, a synthetic stand-in plays and a warning is shown.
 - Keys come from `crypto.getRandomValues`, never `Math.random`.
 - The lock app stores only a salted PBKDF2-SHA-256 hash (150,000 iterations), compared in constant time;
   the PIN is judged as a whole, so a wrong entry never reveals which digit was wrong.
+- **Changing / viewing the PIN** (unlocked screen → *Your PIN*): *Change PIN* sets a new PIN (typed twice,
+  common PINs refused). *Let me view my PIN on this device* is **off by default**. When turned on, the PIN is
+  also stored AES-GCM-encrypted with a non-extractable WebCrypto key kept in IndexedDB, and is shown only while
+  *Hold to show PIN* is pressed (at most 10 s). Turning it off deletes the encrypted copy and the key. This is a
+  convenience trade-off: with it on, anyone who can unlock the phone and run code in the app could recover the PIN.
 - **Known limit:** with only 10,000 PINs a stolen hash can be brute-forced offline; real phones keep the
   attempt counter in secure hardware. A web app cannot replace the OS lock screen, so this is an *app lock*.
 

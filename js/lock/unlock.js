@@ -69,7 +69,8 @@ $('unlockBtn').onclick = async () => {
     fresh.fails = 0;
     saveState(fresh);
     session++;
-    show('home');
+    sessionPin = guess;                                // memory only, wiped on lock (see pin-reveal.js)
+    goHome();
     $('homeInfo').textContent = `Unlocked in ${((performance.now() - unlockStart) / 1000).toFixed(1)} s. Nothing on the screen showed your PIN.`;
     return;
   }

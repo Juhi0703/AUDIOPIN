@@ -104,6 +104,31 @@ async def main():
         await enter("2705"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
         check(True, "lock: correct PIN unlocks -> "+await pg.text_content("#homeInfo"))
         check(await pg.is_hidden("#warn"), "lock: sounds loaded (no warning)")
+        # ---- view-PIN setting: off by default, opt-in, shown only while held ----
+        check(not await pg.is_checked("#revealToggle") and await pg.is_hidden("#revealBtn")
+              and "reveal" not in await pg.evaluate("localStorage.getItem(STORE)"), "lock: view-PIN is off by default (hash only)")
+        await pg.click("#revealToggle"); await pg.wait_for_timeout(300)
+        stored = await pg.evaluate("localStorage.getItem(STORE)")
+        check("reveal" in stored and "2705" not in stored, "lock: turning view-PIN on stores it encrypted, not in plain text")
+        async def held_pin():
+            await pg.hover("#revealBtn"); await pg.mouse.down(); await pg.wait_for_timeout(300)
+            shown = await pg.text_content("#pinShow")
+            await pg.mouse.up(); await pg.wait_for_timeout(100)
+            return shown, await pg.is_hidden("#pinShow")
+        shown, gone = await held_pin()
+        check(shown == "2 7 0 5" and gone, f"lock: holding the button shows the PIN ({shown!r}), releasing hides it")
+        await pg.click("#changeBtn")
+        for _ in range(2):
+            for c in "3816": await pg.click(f"#setupPad button:text-is('{c}')")
+            await pg.wait_for_timeout(300)
+        await pg.wait_for_selector("#lock:not([hidden])", timeout=10000)
+        check("PIN saved" in await pg.text_content("#lockMsg"), "lock: Change PIN saves the new PIN and locks")
+        await enter("3816"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
+        shown, _ = await held_pin()
+        check(shown == "3 8 1 6", f"lock: new PIN unlocks and view-PIN shows the new PIN ({shown!r})")
+        await pg.click("#revealToggle"); await pg.wait_for_timeout(300)
+        check("reveal" not in await pg.evaluate("localStorage.getItem(STORE)") and await pg.is_hidden("#revealBtn"),
+              "lock: turning view-PIN off deletes the encrypted copy")
         await pg.select_option("#layoutSel","cardinal")
         check(await pg.evaluate("document.querySelectorAll('#chart .v').length")==12, "lock: layout switch rebuilds chart")
         await pg.click("#lockBtn")
@@ -112,7 +137,7 @@ async def main():
         check("Too many attempts" in await pg.text_content("#lockMsg") and await pg.is_disabled("#unlockBtn"), "lock: 3 wrong PINs -> lockout")
         await pg.reload(); await pg.wait_for_timeout(1500)
         check(await pg.is_disabled("#unlockBtn"), "lock: lockout survives reload")
-        cached = await pg.evaluate("caches.open('audiopin-lock-v3').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
+        cached = await pg.evaluate("caches.open('audiopin-lock-v4').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
         need = await pg.evaluate("fetch('sw.js').then(r=>r.text())")
         files=[f[2:] for f in re.findall(r"'(\./[^']+)'", need)]
         missing=[f for f in files if f not in cached]

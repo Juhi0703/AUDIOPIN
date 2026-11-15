@@ -13,7 +13,7 @@ function startSetup(skipCheck) {
   drawDots('pinDots', 0);
   $('setupMsg').textContent = '';
 }
-$('setupCancel').onclick = () => show('home');
+$('setupCancel').onclick = () => goHome();
 
 // ---- earphone check: catches phone-speaker playback, one bud, or Mono Audio ----
 $('checkPlay').onclick = async () => {
@@ -64,8 +64,12 @@ async function setupKey(k) {
   $('setupMsg').textContent = 'Saving…';
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const previous = loadState() || {};
-  saveState({ salt: b64(salt), verifier: b64(await hashPin(pin, salt)), fails: 0, lockedUntil: 0,
-              layout: previous.layout || DEFAULT_LAYOUT });                // a new PIN keeps the chosen layout
+  const state = { salt: b64(salt), verifier: b64(await hashPin(pin, salt)), fails: 0, lockedUntil: 0,
+                  layout: previous.layout || DEFAULT_LAYOUT };             // a new PIN keeps the chosen layout
+  if (previous.reveal) {                                                   // ...and the view-PIN setting
+    try { state.reveal = await encryptPin(pin); } catch (e) {}
+  }
+  saveState(state);
   firstPin = null;
   goLock('PIN saved. Lock is on.');
 }

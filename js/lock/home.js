@@ -3,6 +3,12 @@
 $('lockBtn').onclick = () => goLock('');
 $('changeBtn').onclick = () => startSetup(true);
 
+// Every way into the unlocked screen goes through here, so the PIN card is always current.
+function goHome() {
+  show('home');
+  refreshPinCard();
+}
+
 // The layout can only be changed while unlocked, and it is saved with the lock state.
 function applyLayout(name) {
   DIRECTIONS = (LAYOUTS[name] || LAYOUTS[DEFAULT_LAYOUT]).dirs;

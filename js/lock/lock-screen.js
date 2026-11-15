@@ -20,6 +20,8 @@ function tick() {
 
 function goLock(message, bad) {
   cancelEntry();
+  sessionPin = null;
+  hidePin();
   show('lock');
   $('lockMsg').textContent = message || '';
   $('lockMsg').classList.toggle('bad', !!bad);

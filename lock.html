@@ -87,9 +87,16 @@
       <select id="layoutSel"></select>
       <p class="hint" id="layoutNote">Used from the next unlock. Your PIN stays the same.</p>
     </div>
+    <div class="card">
+      <h2>Your PIN</h2>
+      <button id="changeBtn">Change PIN</button>
+      <label class="toggle"><input type="checkbox" id="revealToggle"> <span>Let me view my PIN on this device</span></label>
+      <p class="hint" id="pinNote"></p>
+      <button id="revealBtn" hidden>Hold to show PIN</button>
+      <div class="pinshow" id="pinShow" hidden aria-live="polite"></div>
+    </div>
     <div class="bottom">
       <button id="lockBtn" class="big">Lock</button>
-      <button id="changeBtn" class="ghost">Change PIN</button>
     </div>
   </section>
 </main>
@@ -102,6 +109,7 @@
 <script src="js/lock/settings.js"></script>
 <script src="js/lock/sound.js"></script>
 <script src="js/lock/pin-storage.js"></script>
+<script src="js/lock/pin-reveal.js"></script>
 <script src="js/lock/setup.js"></script>
 <script src="js/lock/lock-screen.js"></script>
 <script src="js/lock/unlock.js"></script>
