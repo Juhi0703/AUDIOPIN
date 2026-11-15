@@ -18,7 +18,7 @@ say "pilot" and report N honestly.
    - **Step 4 – normal PIN**: 1 practice + 5 logins.
    - **Step 5 – key code**: 1 practice + 5 logins.
    - *(optional)* **Step 3 – wait-for-cue**: set a direction PIN in Step 2 first, then 1 practice + 5 logins.
-5. **SUS** after each condition (10 standard items, 1–5). Enter answers in `data/sus.csv` (see `data/sus_template.csv`).
+5. **SUS** after each condition: the printable form is `docs/sus_form.md`. Enter answers in `data/sus.csv` (see `data/sus_template.csv`).
 6. **Save the data** at the end of the session (see *Collecting the CSV files* below).
 
 ## Collecting the CSV files
