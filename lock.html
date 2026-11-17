@@ -104,6 +104,18 @@
       <p class="hint" id="homeDemoNote" aria-live="polite"></p>
     </div>
     <div class="card">
+      <h2>Usage log</h2>
+      <label for="testerId">Tester ID</label>
+      <input id="testerId" type="text" placeholder="e.g. P01" autocomplete="off" autocapitalize="characters">
+      <p class="hint"><span id="lockLogCount">0 unlock attempts logged</span>. Records unlock time, result and repeats — never your PIN, keys or taps.</p>
+      <div class="row">
+        <button id="lockShare">Share CSV</button>
+        <button id="lockDownload">Download CSV</button>
+      </div>
+      <button id="lockClear" class="ghost">Clear log</button>
+      <p class="hint" id="lockLogNote" aria-live="polite"></p>
+    </div>
+    <div class="card">
       <h2>Your PIN</h2>
       <button id="changeBtn">Change PIN</button>
       <label class="toggle"><input type="checkbox" id="revealToggle"> <span>Let me view my PIN on this device</span></label>
@@ -122,6 +134,7 @@
 <script src="js/common/utils.js"></script>
 <script src="js/common/audio-engine.js"></script>
 <script src="js/common/keycode.js"></script>
+<script src="js/common/csv-export.js"></script>
 <script src="js/lock/settings.js"></script>
 <script src="js/lock/sound.js"></script>
 <script src="js/lock/pin-storage.js"></script>
@@ -131,6 +144,7 @@
 <script src="js/lock/unlock.js"></script>
 <script src="js/lock/home.js"></script>
 <script src="js/lock/demo.js"></script>
+<script src="js/lock/usage-log.js"></script>
 <script src="js/lock/main.js"></script>
 </body>
 </html>

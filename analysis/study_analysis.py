@@ -18,9 +18,9 @@ Usage (from the repository root):
 
 SUS answers (--sus): either
   * the Google Forms export as it is (Responses -> Google Sheets -> File -> Download -> CSV), with a
-    "Participant ID" question, a "Condition" question (Normal PIN / AudioPIN key code / Wait-for-cue)
+    "Participant ID" question, a "Condition" question (Normal PIN / AudioPIN key code / Wait-for-cue / AudioPIN Lock app)
     and the 10 SUS statements in standard order, as 1-5 linear scales; or
-  * our own template: participant,condition,q1,...,q10   (condition = normal, key or cue)
+  * our own template: participant,condition,q1,...,q10   (condition = normal, key, cue or lock)
 """
 
 import argparse
@@ -35,6 +35,7 @@ CONDITIONS = [  # (mode in the CSV, short name, label in the paper)
     ("normal-total", "normal", "Normal PIN"),
     ("key-total", "key", "AudioPIN key code"),
     ("audio-total", "cue", "Wait-for-cue"),
+    ("lock-total", "lock", "AudioPIN Lock app"),   # logs exported from lock.html (timings only)
 ]
 
 
@@ -124,6 +125,8 @@ def sus_condition(text):
         return "normal"
     if "cue" in t or "wait" in t:
         return "cue"
+    if "lock" in t:
+        return "lock"
     if "key" in t or "audiopin" in t:
         return "key"
     return t

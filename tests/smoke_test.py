@@ -18,7 +18,7 @@ from playwright.async_api import async_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
-handler.log_message = lambda *a: None
+http.server.SimpleHTTPRequestHandler.log_message = lambda *a: None
 server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{server.server_address[1]}/"
@@ -133,6 +133,23 @@ async def main():
         await enter("2705"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
         check(True, "lock: correct PIN unlocks -> "+await pg.text_content("#homeInfo"))
         check(await pg.is_hidden("#warn"), "lock: sounds loaded (no warning)")
+        # ---- usage log: timings only, never keys / taps / PIN ----
+        check("1 unlock attempt" in await pg.text_content("#lockLogCount"), "lock: a completed unlock is logged")
+        await pg.fill("#testerId", "P07"); await pg.dispatch_event("#testerId", "change")
+        async with pg.expect_download() as dl3:
+            await pg.click("#lockDownload")
+        d3 = await dl3.value; name3 = d3.suggested_filename
+        import csv as _csv, io as _io
+        rows3 = list(_csv.DictReader(_io.StringIO(open(await d3.path()).read())))
+        steps3 = [r for r in rows3 if r["mode"] == "lock-step"]; tot3 = [r for r in rows3 if r["mode"] == "lock-total"]
+        check(name3.startswith("audiopin-lock-P07-") and len(steps3) == 4 and len(tot3) == 1 and tot3[0]["correct"] == "true",
+              f"lock: Download CSV gives 4 digit rows + 1 result row ({name3})")
+        check(all(r[c] == "" for r in rows3 for c in ("key", "code", "target", "chosen", "wrapped"))
+              and "2705" not in open(await d3.path()).read(), "lock: the CSV holds no keys, taps, wrap flags or PIN")
+        async with pg.expect_download() as dl4:
+            await pg.click("#lockShare")
+        check((await dl4.value).suggested_filename.startswith("audiopin-lock-") and "downloaded instead" in await pg.text_content("#lockLogNote"),
+              "lock: Share CSV falls back to a download where sharing is unsupported")
         await pg.evaluate("_k.length=0"); await pg.click("#homeChart .v.tap[data-key='1']"); await pg.wait_for_timeout(300)
         check((await pg.text_content("#homeDemoNote")).startswith("1 =") and await pg.evaluate("_k.at(-1)") == 1
               and await pg.evaluate("document.querySelectorAll('#chart .tap').length") == 0,
@@ -178,6 +195,7 @@ async def main():
         await pg.click("#resetBtn"); await pg.wait_for_timeout(500)
         check(await pg.is_visible("#setup") and await pg.evaluate("localStorage.getItem(STORE) === null"),
               "lock: second tap erases PIN, view-PIN copy and settings, back to setup")
+        check(await pg.evaluate("lockLog.filter(r => r.mode === 'lock-total').length") >= 4, "lock: usage log survives the reset (no secrets in it)")
         for i in range(3):
             await pg.click("#checkPlay")
             for _ in range(50):
@@ -192,7 +210,7 @@ async def main():
         await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")   # re-hook: the page was reloaded
         await enter("4444"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
         check(True, "lock: after reset a new PIN can be set and unlocks")
-        cached = await pg.evaluate("caches.open('audiopin-lock-v6').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
+        cached = await pg.evaluate("caches.open('audiopin-lock-v7').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
         need = await pg.evaluate("fetch('sw.js').then(r=>r.text())")
         files=[f[2:] for f in re.findall(r"'(\./[^']+)'", need)]
         missing=[f for f in files if f not in cached]

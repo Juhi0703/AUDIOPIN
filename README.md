@@ -39,7 +39,7 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-42 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+47 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
 builds its chart, CSV export named by participant, PIN setup accepts any PIN, saves the chosen directions and stores only a hash, lockout survives a
 reload, change PIN, the optional view-PIN setting and the forgot-PIN reset work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash
@@ -84,8 +84,9 @@ per-digit accuracy, repeats and replays, the wrap-around **timing leak** (wrappe
 digits, permutation test), step-1 calibration accuracy and SUS scores, and writes the LaTeX table
 used in the report. The study procedure is in `docs/pilot_protocol.md`.
 
-**Collect study data with `index.html`, not `lock.html`.** The lock app deliberately keeps no log: a per-digit
-record of keys and taps would let anyone reading it recover the PIN. Raw study CSVs in `data/` are git-ignored
+**Use `index.html` for the main study** (it has the normal-PIN baseline, calibration and per-digit accuracy).
+The lock app's usage log adds real-app unlock times and success, but deliberately without keys or taps
+(they would reveal the PIN), so it cannot give per-digit accuracy or the timing-leak test. Raw study CSVs in `data/` are git-ignored
 (`audiopin-*.csv`) so participant data is not published by accident; add them with `git add -f` only with consent.
 
 ---
@@ -134,7 +135,8 @@ AUDIOPIN/
 │   │   ├── config.js        sound list, file names, loudness gains, key/PIN constants
 │   │   ├── utils.js         DOM helpers, secure random (crypto.getRandomValues), shuffle, keypad
 │   │   ├── audio-engine.js  load → mono → trim → loudness-equalise → HRTF spatial playback
-│   │   └── keycode.js       key ↔ (sound, direction) mapping, encode/decode, public chart, digit ring
+│   │   ├── keycode.js       key ↔ (sound, direction) mapping, encode/decode, public chart, digit ring
+│   │   └── csv-export.js    shared CSV columns, file names, download and share-with-fallback
 │   ├── prototype/           index.html only
 │   │   ├── settings.js      layouts, timings, session state
 │   │   ├── sound.js         audio set-up and play helpers for this page
@@ -155,6 +157,8 @@ AUDIOPIN/
 │       ├── lock-screen.js   clock and lockout countdown
 │       ├── unlock.js        key-code unlock and wrong-PIN handling
 │       ├── home.js          unlocked screen, layout choice, auto-lock when hidden
+│       ├── demo.js          "Listen to the sounds" playable chart (setup and unlocked screens)
+│       ├── usage-log.js     timing-only usage log and CSV export
 │       └── main.js          start-up, service-worker registration
 ├── analysis/
 │   ├── attack_simulation.py  shoulder-surfing / microphone attack simulation
@@ -196,6 +200,10 @@ If a file fails to load, a synthetic stand-in plays and a warning is shown.
 - **Listen to the sounds:** the setup screen and the unlocked screen have a playable chart (tap a number, or
   *Play every sound*). The chart shown while entering a PIN is deliberately not playable: a tap there would
   show an onlooker which key was heard.
+- **Usage log (unlocked screen):** enter a *Tester ID*, then *Share CSV* / *Download CSV*
+  (`audiopin-lock-<id>-<date>.csv`, same columns as the prototype, so `study_analysis.py` reports it as
+  "AudioPIN Lock app"). It records per attempt the result, total time and per-digit time, repeats and replays,
+  and **never** the PIN, keys, taps or wrap flags (keys + taps would reveal the PIN). It survives the reset.
 - **Forgot PIN?** The lock screen has *Forgot PIN? Reset app* (tap twice within 5 s). Like a factory reset it
   erases the PIN hash, the view-PIN copy and its key and the settings, then returns to setup; it never reveals the old PIN.
 - **Known limit:** with only 10,000 PINs a stolen hash can be brute-forced offline; real phones keep the

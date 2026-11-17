@@ -129,3 +129,11 @@ label.toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
 .chart .v.tap:hover { border-color: var(--accent); }
 .chart .v.playing { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .demohead { margin-top: 16px; }
+
+/* tester ID field in the usage log */
+input[type='text'] {
+  width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--raised); color: var(--ink); font: inherit;
+  -webkit-user-select: text; user-select: text;
+}
+input[type='text']:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }

@@ -12,15 +12,18 @@ function cancelEntry() {
   if (pendingTap) { const finish = pendingTap; pendingTap = null; finish(null); }
 }
 
-// One digit: play its key sound, repeat it until a tap, resolve with the tapped number.
+// One digit: play its key sound, repeat it until a tap, resolve with
+// {chosen, ms, repeats, replays} (null if cancelled). ms runs from the first play to the tap.
 function askKey(key, run) {
   return new Promise(resolve => {
     pendingTap = resolve;
     const soundMs = Math.min(SOUND_SEC, voices[keyVoice(key)].duration) * 1000;
+    let repeats = 0, replays = 0, start = 0;
     const again = () => {
       clearTimeout(repeatTimer);
       repeatTimer = setTimeout(() => {
         if (run !== session || !keyAnswer) return;
+        repeats++;
         playKey(key);
         again();
       }, soundMs + REPEAT_MS);
@@ -28,14 +31,15 @@ function askKey(key, run) {
     setTimeout(() => {
       if (run !== session) return;
       playKey(key);
-      $('replayBtn').onclick = () => { playKey(key); again(); };
+      start = performance.now();
+      $('replayBtn').onclick = () => { replays++; playKey(key); again(); };
       keyAnswer = chosen => {
         keyAnswer = null;
         clearTimeout(repeatTimer); repeatTimer = null;
         $('replayBtn').onclick = null;
         pendingTap = null;
         buzz(25);
-        resolve(chosen);
+        resolve({ chosen, ms: performance.now() - start, repeats, replays });
       };
       again();
     }, KEY_LEAD_MS);
@@ -49,14 +53,15 @@ $('unlockBtn').onclick = async () => {
   await initAudio();
   unlockStart = performance.now();
   show('entry');
-  const run = ++session, taps = [], keys = [];
+  const run = ++session, taps = [], keys = [], steps = [];
   drawDots('entryDots', 0);
   $('entryMsg').textContent = 'Listen, read the number, count from your digit, tap.';
   for (let i = 0; i < PIN_LEN; i++) {
     const key = randInt(KEYS);
-    const chosen = await askKey(key, run);
-    if (chosen === null || run !== session) return;    // cancelled or auto-locked
-    keys.push(key); taps.push(chosen);
+    const answer = await askKey(key, run);
+    if (answer === null || run !== session) return;    // cancelled or auto-locked
+    keys.push(key); taps.push(answer.chosen);
+    steps.push({ ms: answer.ms, repeats: answer.repeats, replays: answer.replays });   // timing only (usage-log.js)
     drawDots('entryDots', i + 1);
   }
   // Judged only as a whole, so a wrong answer never reveals which digit was wrong.
@@ -64,6 +69,7 @@ $('unlockBtn').onclick = async () => {
   $('entryMsg').textContent = 'Checking…';
   const ok = sameBytes(await hashPin(guess, unb64(state.salt)), unb64(state.verifier));
   if (run !== session) return;
+  logUnlock(ok, performance.now() - unlockStart, steps);   // result + timings only, never keys or taps
   const fresh = loadState();
   if (ok) {
     fresh.fails = 0;
