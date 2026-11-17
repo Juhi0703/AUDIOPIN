@@ -1,7 +1,7 @@
 // AudioPIN Lock — service worker: lets the installed app open with no network.
 // Network first, so a fresh upload to GitHub Pages shows up straight away; the cache is the fallback.
 // Must stay in the repository root so its scope covers lock.html.
-const CACHE = 'audiopin-lock-v4';   // bump this whenever the file list changes, so installed copies refresh
+const CACHE = 'audiopin-lock-v5';   // bump this whenever the file list changes, so installed copies refresh
 const FILES = [
   './lock.html', './manifest.webmanifest', './css/lock.css',
   './js/common/config.js', './js/common/utils.js', './js/common/audio-engine.js', './js/common/keycode.js',

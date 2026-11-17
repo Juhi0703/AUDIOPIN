@@ -20,6 +20,7 @@ function tick() {
 
 function goLock(message, bad) {
   cancelEntry();
+  if (typeof disarmReset === 'function') disarmReset();
   sessionPin = null;
   hidePin();
   show('lock');
@@ -30,3 +31,38 @@ function goLock(message, bad) {
 }
 
 setInterval(() => { if (!$('lock').hidden) tick(); }, 1000);
+
+// ---- "Forgot PIN? Reset app" ----
+// Like a phone's factory reset: it erases the PIN hash, the view-PIN copy and its key, and the
+// settings, then starts setup again. It never reveals the old PIN. Two taps within 5 s, so a stray
+// tap cannot wipe it (no browser confirm() dialog: those can freeze an installed web app).
+let resetArmed = false, resetTimer = null;
+const RESET_LABEL = 'Forgot PIN? Reset app';
+
+function disarmReset() {
+  resetArmed = false;
+  clearTimeout(resetTimer);
+  $('resetBtn').textContent = RESET_LABEL;
+  $('resetBtn').classList.remove('danger');
+}
+
+$('resetBtn').onclick = async () => {
+  if (!resetArmed) {
+    resetArmed = true;
+    $('resetBtn').textContent = 'Tap again to erase the PIN and start over';
+    $('resetBtn').classList.add('danger');
+    resetTimer = setTimeout(disarmReset, 5000);
+    return;
+  }
+  disarmReset();
+  cancelEntry();
+  sessionPin = null;
+  hidePin();
+  memoryState = null;
+  try { localStorage.removeItem(STORE); } catch (e) {}
+  try { await deleteRevealKey(); } catch (e) {}
+  applyLayout(DEFAULT_LAYOUT);
+  $('layoutSel').value = DEFAULT_LAYOUT;
+  startSetup(false);
+  $('setupMsg').textContent = 'App reset. Do the earphone check, then choose a new PIN.';
+};

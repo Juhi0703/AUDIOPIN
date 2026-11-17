@@ -12,7 +12,7 @@ The repository contains two browser apps that share one audio engine:
 | Page | What it is |
 |---|---|
 | `index.html` | **Research prototype** used in the study: direction test, key-code practice, and three login conditions (wait-for-cue, normal PIN baseline, key code) with a CSV results log. |
-| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup with a choice of directions (hash only by default), key-code unlock, lockout after 3 wrong PINs, change PIN and an optional *view my PIN* setting on the unlocked screen, works offline. |
+| `lock.html` | **AudioPIN Lock**, an installable demo app (PWA): earphone check, PIN setup with a choice of directions (hash only by default), key-code unlock, lockout after 3 wrong PINs, change PIN and an optional *view my PIN* setting on the unlocked screen, a forgot-PIN reset, works offline. |
 
 No build step, no dependencies: plain HTML, CSS and JavaScript using the Web Audio API's HRTF panner.
 
@@ -39,9 +39,9 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-32 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+35 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
 builds its chart, CSV export named by participant, PIN setup accepts any PIN, saves the chosen directions and stores only a hash, lockout survives a
-reload, change PIN and the optional view-PIN setting work, the service worker caches every file, and there are no JavaScript errors or missing files.
+reload, change PIN, the optional view-PIN setting and the forgot-PIN reset work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash
 pip install playwright
 python -m playwright install chromium
@@ -192,6 +192,8 @@ If a file fails to load, a synthetic stand-in plays and a warning is shown.
   also stored AES-GCM-encrypted with a non-extractable WebCrypto key kept in IndexedDB, and is shown only while
   *Hold to show PIN* is pressed (at most 10 s). Turning it off deletes the encrypted copy and the key. This is a
   convenience trade-off: with it on, anyone who can unlock the phone and run code in the app could recover the PIN.
+- **Forgot PIN?** The lock screen has *Forgot PIN? Reset app* (tap twice within 5 s). Like a factory reset it
+  erases the PIN hash, the view-PIN copy and its key and the settings, then returns to setup; it never reveals the old PIN.
 - **Known limit:** with only 10,000 PINs a stolen hash can be brute-forced offline; real phones keep the
   attempt counter in secure hardware. A web app cannot replace the OS lock screen, so this is an *app lock*.
 

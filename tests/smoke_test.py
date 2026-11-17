@@ -149,7 +149,29 @@ async def main():
         check("Too many attempts" in await pg.text_content("#lockMsg") and await pg.is_disabled("#unlockBtn"), "lock: 3 wrong PINs -> lockout")
         await pg.reload(); await pg.wait_for_timeout(1500)
         check(await pg.is_disabled("#unlockBtn"), "lock: lockout survives reload")
-        cached = await pg.evaluate("caches.open('audiopin-lock-v4').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
+        # ---- Forgot PIN? Reset app (works even during a lockout) ----
+        await pg.evaluate("(() => { const s = loadState(); s.reveal = {iv: 'AAAA', data: 'AAAA'}; saveState(s); })(); 0")
+        await pg.click("#resetBtn"); await pg.wait_for_timeout(200)
+        armed = await pg.text_content("#resetBtn")
+        check("Tap again" in armed and await pg.evaluate("!!loadState()"), "lock: first tap on reset only asks to confirm")
+        await pg.click("#resetBtn"); await pg.wait_for_timeout(500)
+        check(await pg.is_visible("#setup") and await pg.evaluate("localStorage.getItem(STORE) === null"),
+              "lock: second tap erases PIN, view-PIN copy and settings, back to setup")
+        for i in range(3):
+            await pg.click("#checkPlay")
+            for _ in range(50):
+                side = await pg.evaluate("checkSide")
+                if side: break
+                await pg.wait_for_timeout(100)
+            await pg.click("#checkLeft" if side=="left" else "#checkRight")
+        for _ in range(2):
+            for c in "4444": await pg.click(f"#setupPad button:text-is('{c}')")
+            await pg.wait_for_timeout(300)
+        await pg.wait_for_selector("#lock:not([hidden])", timeout=10000)
+        await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")   # re-hook: the page was reloaded
+        await enter("4444"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
+        check(True, "lock: after reset a new PIN can be set and unlocks")
+        cached = await pg.evaluate("caches.open('audiopin-lock-v5').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
         need = await pg.evaluate("fetch('sw.js').then(r=>r.text())")
         files=[f[2:] for f in re.findall(r"'(\./[^']+)'", need)]
         missing=[f for f in files if f not in cached]
