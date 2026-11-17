@@ -46,7 +46,9 @@ function setLayout(name) {
     }));
   }
   drawHead(null);
-  buildChart('chartA', dirNames(), usedVoices());
+  demoRun++;                                         // stop a running "Play every sound"
+  buildChart('chartA', dirNames(), usedVoices(), demoKey);   // step 1: playable, for learning
+  // chartB is the step-5 login chart: deliberately NOT playable.
   buildChart('chartB', dirNames(), usedVoices());
 }
 

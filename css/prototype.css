@@ -165,3 +165,8 @@ textarea {
   color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 10px;
 }
 @media (prefers-reduced-motion: reduce) { .head .spot { transition: none; } }
+
+/* playable chart numbers (learning screens only) */
+.chart .v.tap { cursor: pointer; }
+.chart .v.tap:hover { border-color: var(--accent); }
+.chart .v.playing { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

@@ -78,6 +78,16 @@ async def main():
         name2 = (await dl2.value).suggested_filename
         check(name2.startswith("audiopin-P09-") and "downloaded instead" in await pg.text_content("#csvNote"),
               f"index: Share CSV falls back to a download where sharing is unsupported ({name2})")
+        # ---- learn the sounds (step 1): chart numbers play; the login chart does not ----
+        await pg.click("#goCalib"); await pg.evaluate("_k.length=0")
+        await pg.click("#chartA .v.tap[data-key='3']"); await pg.wait_for_timeout(400)
+        check((await pg.text_content("#status")).startswith("3 =") and await pg.evaluate("_k.at(-1)") == 3,
+              "index: tapping a chart number plays that code and names it")
+        check(await pg.evaluate("document.querySelectorAll('#chartB .tap').length") == 0, "index: step-5 login chart is not playable")
+        await pg.click("#playAllSounds"); await pg.wait_for_timeout(500)
+        check((await pg.text_content("#status")).startswith("0 =") and await pg.evaluate("$('chartA').querySelector('[data-key=\"0\"]').classList.contains('playing')"),
+              "index: Play every sound starts at 0 and lights its cell")
+        await pg.click("#chartA .v.tap[data-key='1']")      # a tap stops the play-all
         csv = await pg.evaluate("toCsv()")
         check(csv.splitlines()[0].startswith("time,participant,layout"), "index: CSV export header")
         check(not errs, f"index: no JS errors {errs}"); check(not fails, f"index: no 404s {fails}")
@@ -96,6 +106,7 @@ async def main():
                 await pg.wait_for_timeout(100)
             await pg.click("#checkLeft" if side=="left" else "#checkRight")
         check(await pg.is_visible("#pinPanel"), "lock: earphone check passes after 3 correct")
+        check(await pg.evaluate("document.querySelectorAll('#setupChart .v.tap').length") == 10, "lock: setup screen has a playable sound chart")
         for c in "1234": await pg.click(f"#setupPad button:text-is('{c}')")
         await pg.wait_for_timeout(300)
         check("Type it again" in await pg.text_content("#pinTitle") and "Easy to guess" in await pg.text_content("#setupMsg"),
@@ -122,6 +133,10 @@ async def main():
         await enter("2705"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
         check(True, "lock: correct PIN unlocks -> "+await pg.text_content("#homeInfo"))
         check(await pg.is_hidden("#warn"), "lock: sounds loaded (no warning)")
+        await pg.evaluate("_k.length=0"); await pg.click("#homeChart .v.tap[data-key='1']"); await pg.wait_for_timeout(300)
+        check((await pg.text_content("#homeDemoNote")).startswith("1 =") and await pg.evaluate("_k.at(-1)") == 1
+              and await pg.evaluate("document.querySelectorAll('#chart .tap').length") == 0,
+              "lock: unlocked screen chart plays sounds; PIN-entry chart is not playable")
         # ---- view-PIN setting: off by default, opt-in, shown only while held ----
         check(not await pg.is_checked("#revealToggle") and await pg.is_hidden("#revealBtn")
               and "reveal" not in await pg.evaluate("localStorage.getItem(STORE)"), "lock: view-PIN is off by default (hash only)")
@@ -177,7 +192,7 @@ async def main():
         await pg.evaluate("window._k=[]; const _p=playKey; playKey=k=>{_k.push(k); _p(k)}; 0")   # re-hook: the page was reloaded
         await enter("4444"); await pg.wait_for_selector("#home:not([hidden])", timeout=10000)
         check(True, "lock: after reset a new PIN can be set and unlocks")
-        cached = await pg.evaluate("caches.open('audiopin-lock-v5').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
+        cached = await pg.evaluate("caches.open('audiopin-lock-v6').then(c=>c.keys()).then(k=>k.map(r=>r.url.replace(location.origin+'/','')))")
         need = await pg.evaluate("fetch('sw.js').then(r=>r.text())")
         files=[f[2:] for f in re.findall(r"'(\./[^']+)'", need)]
         missing=[f for f in files if f not in cached]

@@ -23,6 +23,7 @@ function goLock(message, bad) {
   if (typeof disarmReset === 'function') disarmReset();
   sessionPin = null;
   hidePin();
+  demoRun++;                                        // stop a running sound demo
   show('lock');
   $('lockMsg').textContent = message || '';
   $('lockMsg').classList.toggle('bad', !!bad);

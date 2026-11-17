@@ -12,7 +12,8 @@ function goHome() {
 // The layout can only be changed while unlocked, and it is saved with the lock state.
 function applyLayout(name) {
   DIRECTIONS = (LAYOUTS[name] || LAYOUTS[DEFAULT_LAYOUT]).dirs;
-  buildChart('chart', DIRECTIONS.map(d => d[0]), usedVoices());
+  buildChart('chart', DIRECTIONS.map(d => d[0]), usedVoices());   // PIN entry chart: NOT playable
+  buildDemoCharts();                                               // the learning charts (demo.js)
 }
 
 fillLayoutSelect('layoutSel');

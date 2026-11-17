@@ -12,7 +12,7 @@ say "pilot" and report N honestly.
 
 ## Per participant
 1. **Consent + background** (1 min): age range, earphone type, prior spatial-audio experience. Write it in `data/participants.csv`.
-2. **Step 1 – practice** (3 min): *Play all, labelled*, then ~10 × *Play a random one*; then ~10 × *Play a key code*. These rows (`test`, `key-test`) give direction and key-reading accuracy.
+2. **Step 1 – practice** (4 min): *Play all, labelled*, then ~10 × *Play a random one*; then *Play every sound* once (or tap the chart numbers) to learn each sound; then ~10 × *Play a key code*. These rows (`test`, `key-test`) give direction and key-reading accuracy.
 3. **Step 2**: the app has generated a random 4-digit number PIN. Show it to the participant, let them memorise it.
 4. **Conditions** — alternate the order between participants (P01: normal → key; P02: key → normal; …):
    - **Step 4 – normal PIN**: 1 practice + 5 logins.

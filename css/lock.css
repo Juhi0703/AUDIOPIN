@@ -123,3 +123,9 @@ label.toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
 /* reset link on the lock screen; turns red once armed */
 #resetBtn { font-size: 0.9rem; }
 #resetBtn.danger { color: var(--bad); font-weight: 600; }
+
+/* playable chart numbers (learning screens only) */
+.chart .v.tap { cursor: pointer; }
+.chart .v.tap:hover { border-color: var(--accent); }
+.chart .v.playing { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.demohead { margin-top: 16px; }

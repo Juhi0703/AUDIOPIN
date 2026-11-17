@@ -18,18 +18,53 @@ const decodeTap   = (tap, key) => (tap - key + 10) % 10;
 
 // The public chart: rows are sounds, columns are directions, cells are the numbers 0-9.
 // It never shows which code is playing -- that is the whole secret.
-function buildChart(id, columns, rows) {
+// onCellTap (optional) makes each number playable, for LEARNING screens only. Never pass it for a chart
+// shown while a PIN is entered: tapping a cell there would show an onlooker which key was heard.
+function buildChart(id, columns, rows, onCellTap) {
   const cells = [cell('h', '')];
   for (const c of columns) cells.push(cell('h', c));
   rows.forEach((name, row) => {
     cells.push(cell('h', name));
     columns.forEach((c, col) => {
       const value = row * columns.length + col;
-      cells.push(value < KEYS ? cell('v', String(value)) : cell('v off', '–'));
+      if (value >= KEYS) { cells.push(cell('v off', '–')); return; }
+      const v = cell('v', String(value));
+      v.dataset.key = value;
+      if (onCellTap) {
+        v.classList.add('tap');
+        v.setAttribute('role', 'button');
+        v.tabIndex = 0;
+        v.setAttribute('aria-label', `Play ${value}: ${name} from ${c}`);
+        v.onclick = () => onCellTap(value);
+        v.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCellTap(value); } };
+      }
+      cells.push(v);
     });
   });
   $(id).style.gridTemplateColumns = `auto repeat(${columns.length}, minmax(0, 1fr))`;
   $(id).replaceChildren(...cells);
+}
+
+// Light up one number of a chart while its sound plays.
+function flashCell(id, key, ms) {
+  const c = $(id).querySelector(`[data-key="${key}"]`);
+  if (!c) return;
+  c.classList.add('playing');
+  setTimeout(() => c.classList.remove('playing'), ms);
+}
+
+// Demo: plays every code 0-9 in order, lighting its cell and naming it via label(key).
+// Stops early (returns false) as soon as isCancelled() is true, e.g. the screen or layout changed.
+async function playAllKeys(id, playOne, label, isCancelled) {
+  const gap = Math.round(SOUND_SEC * 1000) + 500;
+  for (let key = 0; key < KEYS; key++) {
+    if (isCancelled()) return false;
+    playOne(key);
+    flashCell(id, key, gap - 150);
+    label(key);
+    await sleep(gap);
+  }
+  return !isCancelled();
 }
 
 // The ring of digits 0-9, clockwise from the top. onTap(d) is called with the tapped digit.

@@ -39,7 +39,7 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-37 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+42 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
 builds its chart, CSV export named by participant, PIN setup accepts any PIN, saves the chosen directions and stores only a hash, lockout survives a
 reload, change PIN, the optional view-PIN setting and the forgot-PIN reset work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash
@@ -93,7 +93,8 @@ record of keys and taps would let anyone reading it recover the PIN. Raw study C
 ## Using the research prototype (`index.html`)
 
 1. **Step 1 – Test directions.** *Play all, labelled*, then *Play a random one* and pick the direction.
-   Below that, practise reading key codes off the chart.
+   Below that, learn the sounds: tap any number in the chart to hear its sound and direction, or *Play every sound*
+   (all codes 0–9 in order, each cell lit as it plays). Then practise reading key codes with *Play a key code*.
 2. **Step 2 – Set the secrets.** A 4-direction PIN (for step 3) and a 4-digit number PIN (for steps 4 and 5).
 3. **Step 3 – Wait for your cue.** Directions play in random order; tap when yours plays (comparison method).
 4. **Step 4 – Normal PIN.** Ordinary keypad (baseline).
@@ -192,6 +193,9 @@ If a file fails to load, a synthetic stand-in plays and a warning is shown.
   also stored AES-GCM-encrypted with a non-extractable WebCrypto key kept in IndexedDB, and is shown only while
   *Hold to show PIN* is pressed (at most 10 s). Turning it off deletes the encrypted copy and the key. This is a
   convenience trade-off: with it on, anyone who can unlock the phone and run code in the app could recover the PIN.
+- **Listen to the sounds:** the setup screen and the unlocked screen have a playable chart (tap a number, or
+  *Play every sound*). The chart shown while entering a PIN is deliberately not playable: a tap there would
+  show an onlooker which key was heard.
 - **Forgot PIN?** The lock screen has *Forgot PIN? Reset app* (tap twice within 5 s). Like a factory reset it
   erases the PIN hash, the view-PIN copy and its key and the settings, then returns to setup; it never reveals the old PIN.
 - **Known limit:** with only 10,000 PINs a stolen hash can be brute-forced offline; real phones keep the

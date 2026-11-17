@@ -38,6 +38,11 @@
       <label for="setupLayout">Directions</label>
       <select id="setupLayout"></select>
       <p class="hint">More directions = fewer sounds: harder to hear, harder for a nearby microphone. Can be changed later when unlocked.</p>
+      <h2 class="demohead">Listen to the sounds</h2>
+      <p class="hint">Tap a number to hear its sound and direction, or play them all.</p>
+      <div class="chart" id="setupChart"></div>
+      <button id="setupPlayAll">Play every sound</button>
+      <p class="hint" id="setupDemoNote" aria-live="polite"></p>
       <button id="setupCancel" class="ghost" hidden>Keep my current PIN</button>
     </div>
     <p class="msg center" id="setupMsg" role="status" aria-live="polite"></p>
@@ -92,6 +97,13 @@
       <p class="hint" id="layoutNote">Used from the next unlock. Your PIN stays the same.</p>
     </div>
     <div class="card">
+      <h2>Listen to the sounds</h2>
+      <p class="hint">Tap a number to hear its sound and direction, or play them all.</p>
+      <div class="chart" id="homeChart"></div>
+      <button id="homePlayAll">Play every sound</button>
+      <p class="hint" id="homeDemoNote" aria-live="polite"></p>
+    </div>
+    <div class="card">
       <h2>Your PIN</h2>
       <button id="changeBtn">Change PIN</button>
       <label class="toggle"><input type="checkbox" id="revealToggle"> <span>Let me view my PIN on this device</span></label>
@@ -118,6 +130,7 @@
 <script src="js/lock/lock-screen.js"></script>
 <script src="js/lock/unlock.js"></script>
 <script src="js/lock/home.js"></script>
+<script src="js/lock/demo.js"></script>
 <script src="js/lock/main.js"></script>
 </body>
 </html>

@@ -30,6 +30,23 @@ function answerQuiz(d) {
   quizTarget = null;
 }
 
+// ---- learn the sounds: tap a chart number, or play them all ----
+let demoRun = 0;
+async function demoKey(key) {
+  await initAudio();
+  demoRun++;                                          // a tap stops a running play-all
+  playKey(key);
+  flashCell('chartA', key, Math.round(SOUND_SEC * 1000));
+  say(`${key} = ${codeName(key)}`);
+}
+$('playAllSounds').onclick = async () => {
+  await initAudio();
+  const run = ++demoRun;
+  const done = await playAllKeys('chartA', playKey, key => say(`${key} = ${codeName(key)}`),
+                                 () => run !== demoRun || $('calibPanel').hidden);
+  if (done) say('That was every code in the chart. Now test yourself with "Play a key code".');
+};
+
 $('keyPractice').onclick = async () => {
   await initAudio();
   practiceKey = randInt(KEYS);
