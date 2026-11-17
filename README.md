@@ -39,7 +39,7 @@ Wear **stereo earphones**, left bud in the left ear. Mono Audio (accessibility s
 
 ### Running the automated test
 `tests/smoke_test.py` drives both pages in a headless browser (starts its own local server) and checks
-35 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
+37 behaviours end to end: all sounds load, each login condition completes with correct taps, every layout
 builds its chart, CSV export named by participant, PIN setup accepts any PIN, saves the chosen directions and stores only a hash, lockout survives a
 reload, change PIN, the optional view-PIN setting and the forgot-PIN reset work, the service worker caches every file, and there are no JavaScript errors or missing files.
 ```bash

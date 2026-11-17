@@ -23,11 +23,11 @@ say "pilot" and report N honestly.
 
 ## Collecting the CSV files
 The prototype keeps every answer in the phone's browser storage (it survives a reload) until you press
-**Clear log**. At the end of each session open **Results log** and use one of:
+**Clear log**. At the end of each session scroll to the **bottom** of the page and tap **Results log · N rows** to open it, then use one of:
 
 | Button | Best for | What happens |
 |---|---|---|
-| **Share CSV** (shown only on phones that support it) | Android Chrome, iPhone Safari | Opens the share sheet: send `audiopin-P01-<date>.csv` to WhatsApp (yourself), Google Drive, Gmail, Nearby Share… |
+| **Share CSV** | Android Chrome, iPhone Safari | Opens the share sheet: send `audiopin-P01-<date>.csv` to WhatsApp (yourself), Google Drive, Gmail, Nearby Share… Where the browser cannot share files (laptop, Firefox, a link opened inside WhatsApp), it downloads the file instead and says so under the buttons. |
 | **Download CSV** | laptop, Android | Saves `audiopin-P01-<date>.csv` to Downloads (iPhone: Files app → Downloads) |
 | **Show CSV to copy** | anything else | Shows the text; copy-paste it into a file named `audiopin-P01.csv` |
 

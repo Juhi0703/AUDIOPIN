@@ -48,25 +48,39 @@ function csvName() {
 }
 const csvFile = () => new File([toCsv()], csvName(), { type: 'text/csv' });
 
-$('dl').onclick = () => {
+function downloadCsv() {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(csvFile());
   link.download = csvName();
   document.body.appendChild(link);
   link.click();
   link.remove();
-};
+}
+$('dl').onclick = downloadCsv;
 
 // Phones: send the CSV straight to WhatsApp, Drive, Gmail, Nearby Share... (Web Share API, where supported).
 function canShareCsv() {
   try { return !!(navigator.canShare && navigator.canShare({ files: [csvFile()] })); } catch (e) { return false; }
 }
-$('shareCsv').hidden = !canShareCsv();
+// Messages about saving the CSV appear both in the status line and next to the buttons.
+const csvSay = text => { say(text); $('csvNote').textContent = text; };
+
+// Always visible. Where the browser cannot share files (laptops, Firefox, links opened inside
+// WhatsApp/Instagram), it downloads the file instead and says where to find it.
 $('shareCsv').onclick = async () => {
+  if (!log.length) return csvSay('The log is empty — nothing to share yet.');
+  if (!canShareCsv()) {
+    downloadCsv();
+    return csvSay(`This browser can't share files, so ${csvName()} was downloaded instead. ` +
+               'Send it from Downloads (iPhone: Files app → Downloads), or open this page in Chrome/Safari to share directly.');
+  }
   try {
     await navigator.share({ files: [csvFile()], title: csvName(), text: 'AudioPIN study log' });
+    csvSay(`Shared ${csvName()}.`);
   } catch (e) {
-    if (e.name !== 'AbortError') say('Sharing failed — use Download CSV or Show CSV to copy instead.');
+    if (e.name === 'AbortError') return;          // the user closed the share sheet
+    downloadCsv();
+    csvSay(`Sharing failed, so ${csvName()} was downloaded instead.`);
   }
 };
 

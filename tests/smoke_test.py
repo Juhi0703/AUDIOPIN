@@ -72,6 +72,12 @@ async def main():
             await pg.click("#dl")
         name = (await dl.value).suggested_filename
         check(name.startswith("audiopin-P09-") and name.endswith(".csv"), f"index: CSV file named by participant ({name})")
+        check(await pg.is_visible("#shareCsv"), "index: Share CSV button always visible")
+        async with pg.expect_download() as dl2:
+            await pg.click("#shareCsv")
+        name2 = (await dl2.value).suggested_filename
+        check(name2.startswith("audiopin-P09-") and "downloaded instead" in await pg.text_content("#csvNote"),
+              f"index: Share CSV falls back to a download where sharing is unsupported ({name2})")
         csv = await pg.evaluate("toCsv()")
         check(csv.splitlines()[0].startswith("time,participant,layout"), "index: CSV export header")
         check(not errs, f"index: no JS errors {errs}"); check(not fails, f"index: no 404s {fails}")

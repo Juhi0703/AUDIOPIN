@@ -107,10 +107,11 @@
     <p class="hint">Keep this closed while someone is watching: it shows the answers.</p>
     <div class="row">
       <button id="dl">Download CSV</button>
-      <button id="shareCsv" hidden>Share CSV</button>
+      <button id="shareCsv">Share CSV</button>
       <button id="showCsv">Show CSV to copy</button>
       <button id="wipe">Clear log</button>
     </div>
+    <p class="hint" id="csvNote" role="status" aria-live="polite"></p>
     <div class="tablewrap" id="logView"></div>
     <textarea id="csvText" readonly hidden aria-label="Log as CSV"></textarea>
   </details>
