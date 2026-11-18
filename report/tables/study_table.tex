@@ -1,16 +1,39 @@
-% PLACEHOLDER -- replace by running (from the repository root):
-%   python analysis/study_analysis.py data/*.csv --sus data/sus.csv --tex report/tables/study_table.tex
+% Pilot results from the AudioPIN Lock app usage logs (17-18 Nov 2026) and the SUS Google Form.
+% One row per exported log file ("session"); tester IDs were not entered, so sessions are not matched to people.
 \begin{table}[t]
 \centering
-\caption{Login performance ($N=\,$--). Time: median per participant, mean $\pm$ SD across participants.}
+\caption{Pilot unlock attempts logged by the AudioPIN Lock app, per session.}
 \label{tab:study}
-\begin{tabular}{lccc}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
 \toprule
-Condition & Success & Time (s) & SUS \\
+Session & Layout(s) & Success / attempts & Rate & Time$^{*}$ (s) \\
 \midrule
-Normal PIN & -- & -- & -- \\
-AudioPIN key code & -- & -- & -- \\
-Wait-for-cue & -- & -- & -- \\
+A & $2\times5$                  & 1 / 4   & 25\%  & 22.3 \\
+B & $2\times5$                  & 1 / 9   & 11\%  & 12.9 \\
+C & $2\times5$, $3\times4$, $4\times3$ & 7 / 20  & 35\%  & 16.0 \\
+D & $2\times5$                  & 1 / 1   & 100\% & 13.7 \\
+E & $2\times5$                  & 1 / 1   & 100\% & 9.3 \\
+\midrule
+All &                           & 11 / 35 & 31\%  & 15.0 \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize $^{*}$Median time of successful unlocks (all: range 9.3--22.3\,s).}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{System Usability Scale (0--100) for the AudioPIN key-code method.}
+\label{tab:sus}
+\begin{tabular}{lcc}
+\toprule
+Respondents & $N$ & SUS, mean $\pm$ SD \\
+\midrule
+All                          & 5 & 70.5 $\pm$ 14.2 \\
+Excluding the two authors    & 3 & 70.0 $\pm$ 20.0 \\
+Excluding one straight-lined response & 4 & 75.6 $\pm$ 9.7 \\
 \bottomrule
 \end{tabular}
 \end{table}

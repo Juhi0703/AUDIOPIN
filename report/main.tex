@@ -24,25 +24,24 @@
 
 \author{
 \IEEEauthorblockN{Juhi Chaudhary}
-\IEEEauthorblockA{\tbd{Roll no.}\\Department of Computer Science and Engineering\\\tbd{Institute}\\\tbd{Email}}
+\IEEEauthorblockA{P25CS0005\\Department of Computer Science and Engineering\\Indian Institute of Technology Jodhpur\\\tbd{Email}}
 \and
-\IEEEauthorblockN{\tbd{Second author}}
-\IEEEauthorblockA{\tbd{Roll no.}\\Department of Computer Science and Engineering\\\tbd{Institute}\\\tbd{Email}}
+\IEEEauthorblockN{Ranvir Kumar Singh}
+\IEEEauthorblockA{P25CS0007\\Department of Computer Science and Engineering\\Indian Institute of Technology Jodhpur\\\tbd{Email}}
 }
 
 \maketitle
 
 % ------------------------------------------------------------------------------------- abstract
 \begin{abstract}
-A PIN typed in public is easy to watch and to record. AudioPIN keeps the PIN off
-the screen. For every digit, the user's earphones play one short spatial sound; which sound it is and
-where it comes from encode a fresh random key from 0 to 9, read from a public chart. The user taps the
-digit plus the key, modulo ten. Because the key is uniform and new for every digit of every login,
-each tap is equally likely, and a video of any number of logins reveals nothing. We implement AudioPIN
-as a browser prototype and an installable lock app, and evaluate it with a Bayes-optimal attack
-simulation over five direction layouts. A video-only attacker stays at chance (0.03\%); one whose
-microphone identifies the sounds breaks 0.5--18.8\% of PINs after one login. A pilot study compares
-AudioPIN with a normal PIN.
+A PIN typed in public is easy to watch and to record. AudioPIN keeps the PIN off the screen. For every
+digit, the user's earphones play one short spatial sound whose identity and direction encode a fresh
+random key from 0 to 9, read from a public chart; the user taps the digit plus the key, modulo ten.
+Because the key is uniform and new for every digit of every login, each tap is equally likely, and video
+of any number of logins reveals nothing. A Bayes-optimal attack simulation over five direction layouts
+shows that a video-only attacker stays at chance (0.03\%), while one whose microphone identifies the
+sounds breaks 0.5--18.8\% of PINs after one login. In a pilot with our lock app, successful unlocks took
+a median of 15.0\,s, but only 11 of 35 attempts succeeded; the SUS score averaged 70.5.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -210,30 +209,42 @@ sound loading, completion of every login condition with correct taps, chart gene
 layout, CSV export, hash-only PIN storage, lockout across reloads and offline caching. All pass.
 
 \subsection{Pilot study}
-\tbd{N} participants (\tbd{age range, earphone types}) used the four-side-position layout in a
-within-subjects design with counterbalanced order: normal PIN and AudioPIN key code\tbd{, and
-wait-for-cue}. Each condition had one practice login and five measured logins, followed by the System
-Usability Scale (SUS)~\cite{brooke1996sus}. Table~\ref{tab:study} summarises the results.
-\tbd{One or two sentences: how much slower AudioPIN is than a normal PIN, success rate, how the SUS
-score compares with the commonly used acceptability ranges~\cite{bangor2008sus}.} These are
-first-session numbers; SSSL needed weeks of practice to reach its best times~\cite{perkovic2010sssl}.
+We ran an informal pilot on 17--18 November 2026 with the AudioPIN Lock app on participants' own phones.
+The app's usage log records, for every complete unlock attempt, the result, the total time and, per digit,
+the response time and the number of cue repeats; by design it never records keys or taps. Five log files
+(sessions A--E) held 35 attempts, 29 of them with two directions and five sounds (Table~\ref{tab:study}).
+Tester IDs were not entered, so sessions cannot be matched to individual people.
+
+Only 11 of 35 attempts (31\%) unlocked. Successful unlocks took a median of 15.0\,s (range 9.3--22.3\,s),
+about 3.3\,s per digit; failed attempts took longer (median 19.2\,s). A digit needed 1.36 automatic cue
+repeats on average, only 28\% of digits were answered before the first repeat, and the replay button was
+never used. Success rose from 2 of 11 in the first three attempts of each session to 9 of 24 afterwards,
+which suggests learning. Because keys and taps are not logged, the log cannot tell whether a failure came
+from mishearing a sound, miscounting on the ring or a wrong PIN.
+
+Five participants rated the key-code method on the System Usability Scale~\cite{brooke1996sus}
+(Table~\ref{tab:sus}): 70.5\,$\pm$\,14.2 on average (median 70), around the commonly cited average of 68
+and at the lower edge of the ``acceptable'' range of~\cite{bangor2008sus}. Two of the respondents are the authors; the other
+three averaged 70.0\,$\pm$\,20.0. One respondent gave 5 to every item, including the negatively worded
+ones; without that response the mean is 75.6\,$\pm$\,9.7. These are first-session numbers without a
+normal-PIN baseline, and SSSL needed weeks of practice to reach its best times~\cite{perkovic2010sssl}.
 
 \input{tables/study_table}
 
 \subsection{Timing leak}
 A digit $d$ wraps past 9 with probability $d/10$, and counting past the wrap may take longer, so a
-stopwatch could hint at large digits~\cite{perkovic2010partially}. In our data, correct digits that
-wrapped took \tbd{x.xx}\,s (median) against \tbd{x.xx}\,s for those that did not
-(\tbd{permutation test, $p=\dots$}).
+stopwatch could hint at large digits~\cite{perkovic2010partially}. The lock app's log deliberately omits
+keys and taps, so it cannot show which digits wrapped, and this pilot could not test the leak. The
+research prototype records it per digit and will be used for that analysis.
 
 % ------------------------------------------------------------------------------------- V
 \section{Conclusion}
 AudioPIN moves the per-digit secret of PIN entry from the screen to the earphones. A fresh uniform key
 for every digit makes each tap equally likely, so recording the screen, once or many times, does not
 help an attacker. The attack simulation shows where the remaining risk lies: a microphone that
-identifies the sounds, a risk that falls as the layout uses more directions and fewer sounds. The pilot
-study \tbd{one-sentence summary}. The main limitations are this acoustic leak, the possible wrap-around
-timing leak, front--back confusion with generic HRTFs, small first-session samples, and the small
+identifies the sounds, a risk that falls as the layout uses more directions and fewer sounds. The pilot shows that unlocking takes about 15\,s and is rated
+acceptable, but is not yet reliable: only 31\% of first-day attempts succeeded. The main limitations are this acoustic leak, the possible wrap-around
+timing leak, front--back confusion with generic HRTFs, a small first-session pilot without a normal-PIN baseline or tester IDs, and the small
 space of four-digit PINs; the lock app is an app lock, not a replacement for the operating system's.
 Next, we will measure how well a real recording reveals sound and side, enforce a constant minimum time
 per digit, and run a longer study.
@@ -243,7 +254,7 @@ per digit, and run a longer study.
 We used Claude (Anthropic) during this project. It reorganised the codebase into modules, wrote the
 README, the automated browser test, the attack-simulation script (re-implemented from our threat model;
 its results matched our earlier table) and the study-analysis script, set up this LaTeX template with
-its tables and figures, checked the bibliography entries, and rewrote the text of this report from our
+its tables and figures, computed the pilot statistics from our logs, checked the bibliography entries, and rewrote the text of this report from our
 draft for structure and clarity. The method, the design decisions, the choice of sounds and the user
 study are our own, and we checked every claim and number in this report against the code and data.
 \tbd{Add any other AI tools used.}
